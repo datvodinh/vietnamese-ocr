@@ -1,8 +1,8 @@
-from loader.vocab import Vocabulary
-from loader.generator import OCRDataset
-from loader.transform import Transform
+from utils.vocab import Vocabulary
+from utils.generator import OCRDataset
+from utils.transform import Transform
 from model.model import OCRModel
-from model.writer import Writer
+from utils.writer import Writer
 
 from torch.utils.data import DataLoader
 import torch
