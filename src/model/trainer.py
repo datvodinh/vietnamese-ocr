@@ -1,8 +1,8 @@
-from utils.vocab import Vocabulary
-from utils.generator import OCRDataset
-from utils.transform import Transform
-from model.model import OCRModel
-from utils.writer import Writer
+from src.utils.vocab import Vocabulary
+from src.utils.generator import OCRDataset
+from src.utils.transform import Transform
+from src.model.model import OCRModel
+from src.utils.writer import Writer
 
 from torch.utils.data import DataLoader
 import torch
@@ -21,16 +21,22 @@ class Trainer:
                                   target_dict=self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
-        self.model = OCRModel(config)
+        self.model = OCRModel(config,self.vocabulary.vocab_size)
         self.writer = Writer()
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optim = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
 
     def fit(self):
         for _ in range(self.config['num_epochs']):
             for src,target_input, target_output, target_padding, output_padding in self.dataloader:
-                logits = self.model(src,target_input,target_padding)
-                loss   = self.criterion()
+                logits         = self.model(src,target_input,target_padding) # (B,L,V)
+                logits         = logits.reshape(logits.shape[0] * logits.shape[1],logits.shape[2])
+                output_padding = output_padding.reshape(-1)
+                loss           = self.criterion(logits[output_padding!=0],target_output[output_padding!=0])
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                
 
 

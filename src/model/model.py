@@ -3,9 +3,9 @@ import torch.nn as nn
 from torchvision import models
 
 class PositionalEncoding(nn.Module):
-    def __init__(self,num_hiddens,dropout = 0.5,max_len=1000):
-        super(PositionalEncoding,self).__init__()
-        PE = torch.zeros((1,max_len,num_hiddens))
+    def __init__(self,num_hiddens,device,dropout = 0.5,max_len=1000):
+        super().__init__()
+        PE = torch.zeros((1,max_len,num_hiddens)).to(device)
         self.dropout = nn.Dropout(dropout)
         position = torch.arange(0,max_len,dtype=torch.float32).reshape(-1,1) \
         / torch.pow(10000,torch.arange(0,num_hiddens,2,dtype=torch.float32) / num_hiddens)
@@ -19,15 +19,15 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self,embed_size,heads,bias=False):
+    def __init__(self,embed_size,heads,device,bias=False):
         super().__init__()
         self.embed_size = embed_size
         self.heads = heads
         self.heads_dim = int(embed_size / heads)
-        self.keys = nn.Linear(embed_size,embed_size,bias=bias)
-        self.queries = nn.Linear(embed_size,embed_size,bias=bias)
-        self.values = nn.Linear(embed_size,embed_size,bias=bias)
-        self.fc = nn.Linear(embed_size,embed_size,bias=bias)
+        self.keys = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.queries = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.values = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.fc = nn.Linear(embed_size,embed_size,bias=bias).to(device)
 
     def forward(self,query,key,value,mask=None,padding=None):
         '''
@@ -55,11 +55,11 @@ class MultiHeadAttention(nn.Module):
             dot_product = dot_product.masked_fill(padding==0,float('-inf'))
         scaled_product = torch.softmax(dot_product ,dim=-1)
         alpha = torch.einsum("bhqk,bvhd->bqhd",scaled_product,values)
-        out = self.fc(alpha.reshape(key.shape[0],key.shape[1],self.embed_size))
+        out = self.fc(alpha.reshape(query.shape[0],query.shape[1],self.embed_size))
         return out
     
 class TransformerBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads):
+    def __init__(self, embed_dim, num_heads, bias,device):
         """
         Overview: Initialize a Transformer Block.
         
@@ -68,15 +68,15 @@ class TransformerBlock(nn.Module):
             num_heads (`int`): Number of attention heads.
         """
         super().__init__()
-        self.attention   = MultiHeadAttention(embed_dim, num_heads)
-        self.layer_norm1 = nn.LayerNorm(embed_dim)
-        self.layer_norm2 = nn.LayerNorm(embed_dim)
+        self.attention   = MultiHeadAttention(embed_dim, num_heads,device, bias)
+        self.layer_norm1 = nn.LayerNorm(embed_dim).to(device)
+        self.layer_norm2 = nn.LayerNorm(embed_dim).to(device)
 
         self.fc = nn.Sequential(
             nn.Linear(embed_dim, 4*embed_dim),
             nn.ReLU(),
             nn.Linear(4*embed_dim,embed_dim)
-        )
+        ).to(device)
 
     def forward(self, query, key, value, mask=None,padding=None):
         """
@@ -99,11 +99,11 @@ class TransformerBlock(nn.Module):
         return out
     
 class DecoderBlock(nn.Module):
-    def __init__(self,embed_size,heads,bias=False):
-        super(DecoderBlock,self).__init__()
-        self.transformer_block = TransformerBlock(embed_size,heads,bias)
-        self.attention = MultiHeadAttention(embed_size,heads,bias)
-        self.layer_norm = nn.LayerNorm(embed_size)
+    def __init__(self,embed_size,heads,device,bias=False):
+        super().__init__()
+        self.transformer_block = TransformerBlock(embed_size,heads,bias,device)
+        self.attention = MultiHeadAttention(embed_size,heads,device,bias)
+        self.layer_norm = nn.LayerNorm(embed_size).to(device)
         self.dropout = nn.Dropout()
 
     def forward(self,x,enc_value,enc_key,src_mask=None,target_mask=None,padding=None):
@@ -118,12 +118,12 @@ class DecoderBlock(nn.Module):
         return out
 
 class Encoder(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias=False):
-        super(Encoder,self).__init__()
-        self.position_embed = PositionalEncoding(embed_size,max_len=max_len,dropout=dropout)
+    def __init__(self,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
+        super().__init__()
+        self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
         self.encoder_layers = nn.ModuleList(
             [
-                TransformerBlock(embed_size,heads,bias)
+                TransformerBlock(embed_size,heads,bias,device)
                 for _ in range(num_layers)
             ]
 
@@ -132,8 +132,7 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self,x,mask=None,padding=None):
-        x_embed = self.embed(x)
-        x_embed = self.position_embed(x_embed)
+        x_embed = self.position_embed(x)
         out = self.dropout(x_embed)
         for layer in self.encoder_layers:
             out = layer(out,out,out,mask,padding)
@@ -141,20 +140,20 @@ class Encoder(nn.Module):
         return out
     
 class Decoder(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias=False):
-        super(Decoder,self).__init__()
-        self.embed = nn.Embedding(vocab_size,embed_size)
-        self.position_embed = PositionalEncoding(embed_size,max_len=max_len,dropout=dropout)
+    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size,embed_size).to(device)
+        self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
         self.decoder_layer = nn.ModuleList(
             [
-                DecoderBlock(embed_size,heads,bias)
+                DecoderBlock(embed_size,heads,device,bias)
                 for _ in range(num_layers)
             ]
         )
 
         self.dropout = nn.Dropout(dropout)
 
-        self.fc = nn.Linear(embed_size,vocab_size)
+        self.fc = nn.Linear(embed_size,vocab_size).to(device)
 
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         x_embed = self.embed(x)
@@ -171,8 +170,8 @@ class TransformerModel(nn.Module):
     def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,block_size,n_iter):
         
         super().__init__()
-        self.encoder = Encoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,bias).to(device)
-        self.decoder = Decoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,bias).to(device)
+        self.encoder = Encoder(embed_size,heads,num_layers,max_len,dropout,device,bias).to(device)
+        self.decoder = Decoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias).to(device)
         self.apply(self._init_weights)
 
         self.optimizer = torch.optim.Adam(self.parameters(),lr=lr)
@@ -200,26 +199,28 @@ class TransformerModel(nn.Module):
         return out
     
 class OCRModel(nn.Module):
-    def __init__(self,config):
+    def __init__(self,config,vocab_size):
+        super().__init__()
         self.transformer = TransformerModel(
-            vocab_size  = config["transformer"]['vocab_size'],
+            vocab_size  = vocab_size,
             embed_size  = config["transformer"]['embed_size'],
+            heads       = config["transformer"]['num_heads'],
             num_layers  = config["transformer"]['num_layers'],
             max_len     = config["transformer"]['max_len'],
             dropout     = config["transformer"]['dropout'],
-            device      = config["transformer"]['device'],
+            device      = config['device'],
             block_size  = config["transformer"]['block_size'],
             lr          = config['lr'],
             batch_size  = config['batch_size'],
-            n_iter      = config['n_iter']
+            n_iter      = config['n_iter'],
+            bias        = config["transformer"]['bias']
         )
 
-        self.cnn = models.resnet18()
-        self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size'])
-        self.linear = nn.Sequential()
+        self.cnn = models.resnet18().to(config['device'])
+        self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
 
     def forward(self,src,target):
-        out_cnn = self.cnn(src)
+        out_cnn = self.cnn(src).unsqueeze(1)
         out_transformer = self.transformer(out_cnn,target)
         return out_transformer
     
