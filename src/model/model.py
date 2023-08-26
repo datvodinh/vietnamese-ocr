@@ -167,7 +167,7 @@ class Decoder(nn.Module):
         return out
     
 class TransformerModel(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,block_size,n_iter):
+    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,block_size):
         
         super().__init__()
         self.encoder = Encoder(embed_size,heads,num_layers,max_len,dropout,device,bias).to(device)
@@ -178,7 +178,6 @@ class TransformerModel(nn.Module):
         self.device = device
         self.batch_size = batch_size
         self.block_size = block_size
-        self.n_iter = n_iter
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -212,16 +211,15 @@ class OCRModel(nn.Module):
             block_size  = config["transformer"]['block_size'],
             lr          = config['lr'],
             batch_size  = config['batch_size'],
-            n_iter      = config['n_iter'],
             bias        = config["transformer"]['bias']
         )
 
         self.cnn = models.resnet18().to(config['device'])
         self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
 
-    def forward(self,src,target):
+    def forward(self,src,target,padding):
         out_cnn = self.cnn(src).unsqueeze(1)
-        out_transformer = self.transformer(out_cnn,target)
+        out_transformer = self.transformer(out_cnn,target,padding)
         return out_transformer
     
 
