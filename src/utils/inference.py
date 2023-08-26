@@ -17,7 +17,7 @@ class Inference:
             logits = self.model(src,target)
             logits = logits[-1,:]
             probs = F.softmax(logits, dim=-1)
-            target_next = torch.multinomial(probs, num_samples=1) # (B, 1)
-            target = torch.cat((target, target_next.unsqueeze(0)), dim=1).to(device)
+            target_next = torch.argmax(probs)
+            target = torch.cat((target, target_next.unsqueeze(0).unsqueeze(0)), dim=1).to(device)
             c+=1
         return target
