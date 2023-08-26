@@ -50,9 +50,9 @@ class MultiHeadAttention(nn.Module):
         queries = queries / (self.embed_size)**(1/4)
         dot_product = torch.einsum('bkhd,bqhd->bhqk',keys,queries) # (batch_size,heads,query_len,key_len)
         if mask is not None:
-            dot_product = dot_product.masked_fill(mask==0,float('-inf'))
+            dot_product = dot_product.masked_fill(mask==0,float('-1e20'))
         if padding is not None:
-            dot_product = dot_product.masked_fill(padding==0,float('-inf'))
+            dot_product = dot_product.masked_fill(padding==0,float('-1e20'))
         scaled_product = torch.softmax(dot_product ,dim=-1)
         alpha = torch.einsum("bhqk,bvhd->bqhd",scaled_product,values)
         out = self.fc(alpha.reshape(query.shape[0],query.shape[1],self.embed_size))

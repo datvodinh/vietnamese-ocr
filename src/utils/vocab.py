@@ -17,7 +17,7 @@ class Vocabulary:
                 self.max_tar_len = len(x[1])
         
         self.add_special_token()
-        self.target_dict   = {x[0]:self.encode(x[1]).int() for x in new_data}
+        self.target_dict   = {x[0]:self.encode(x[1]).long() for x in new_data}
         self.vocab_size = len(vocab)
         
     def encode(self, s):
