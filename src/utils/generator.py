@@ -31,6 +31,6 @@ class OCRDataset(Dataset):
         target_input = self.target_dict[self.image_paths[idx]][0:-1]
         target_output = self.target_dict[self.image_paths[idx]][1:]
         
-        target_padding = (target_input>2) * 1.0
-        output_padding = (target_output>2) * 1.0
+        target_padding = (target_input>1) * 1.0
+        output_padding = (target_output>1) * 1.0
         return image.to(self.device),target_input, target_output, target_padding.to(self.device), output_padding.to(self.device)

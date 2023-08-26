@@ -204,7 +204,7 @@ class TransformerModel(nn.Module):
     
     def forward(self,src,target,tar_pad=None):
         encoder_out = self.encoder(src)
-        out = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad.unsqueeze(1)))
+        out = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad))
         return out
     
 class OCRModel(nn.Module):
@@ -231,9 +231,12 @@ class OCRModel(nn.Module):
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
         ).to(config['device'])
 
-    def forward(self,src,target,padding):
+    def forward(self,src,target,padding=None):
         out_cnn = self.cnn(src).unsqueeze(1)
-        out_transformer = self.transformer(out_cnn,target,padding)
+        if padding is not None:
+            out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
+        else:
+            out_transformer = self.transformer(out_cnn,target)
         out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
         out = self.fc(out_transformer)
         return out
