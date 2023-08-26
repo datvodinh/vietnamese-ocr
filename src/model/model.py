@@ -193,14 +193,14 @@ class TransformerModel(nn.Module):
         return target_mask.to(self.device)
     
     def padding_mask(self,padding=None):
-        if padding:
+        if padding is not None:
             return (padding.transpose(2,1) @ padding).unsqueeze(1)
         else:
             return None
     
     def forward(self,src,target,tar_pad=None):
         encoder_out = self.encoder(src)
-        out = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad))
+        out = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad.unsqueeze(1)))
         return out
     
 class OCRModel(nn.Module):
