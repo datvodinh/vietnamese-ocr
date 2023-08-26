@@ -142,7 +142,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size+5,embed_size).to(device)
+        self.embed = nn.Embedding(vocab_size,embed_size).to(device)
         self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
         self.decoder_layer = nn.ModuleList(
             [
@@ -222,11 +222,17 @@ class OCRModel(nn.Module):
 
         self.cnn = models.resnet18().to(config['device'])
         self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+        self.fc = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(config["transformer"]['embed_size'],vocab_size)
+        )
 
     def forward(self,src,target,padding):
         out_cnn = self.cnn(src).unsqueeze(1)
         out_transformer = self.transformer(out_cnn,target,padding)
-        return out_transformer
+        out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
+        out = self.fc(out_transformer)
+        return out
     
 
 

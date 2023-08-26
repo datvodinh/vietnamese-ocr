@@ -31,7 +31,6 @@ class Trainer:
         for _ in range(self.config['num_epochs']):
             for src,target_input, target_output, target_padding, output_padding in self.dataloader:
                 logits         = self.model(src,target_input,target_padding) # (B,L,V)
-                logits         = logits.reshape(logits.shape[0] * logits.shape[1],logits.shape[2])
                 output_padding = output_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
                 loss           = self.criterion(logits[output_padding!=0],target_output[output_padding!=0])

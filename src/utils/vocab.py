@@ -36,5 +36,6 @@ class Vocabulary:
         self.idx_to_letter[0] = '<sos>'
         self.idx_to_letter[1] = '<eos>'
         self.idx_to_letter[2] = '<pad>'
+        self.vocab_size += 3
 
 
