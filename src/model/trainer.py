@@ -23,7 +23,7 @@ class Trainer:
                                   target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
-        self.len_loader = int(len(self.dataloader) / config['batch_size']) + 1
+        self.len_loader = len(self.dataloader)
         self.model = OCRModel(config,self.vocabulary.vocab_size)
         self.writer = Writer()
 
@@ -42,6 +42,6 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 print(f"| Epoch {_} | Batch {idx}/{self.len_loader} | Loss: {loss.detach().item():.4f}")
-                
+                idx+=1
 
 

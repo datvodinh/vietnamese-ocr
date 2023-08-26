@@ -229,7 +229,7 @@ class OCRModel(nn.Module):
         self.fc = nn.Sequential(
             nn.ReLU(),
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
-        )
+        ).to(config['device'])
 
     def forward(self,src,target,padding):
         out_cnn = self.cnn(src).unsqueeze(1)
