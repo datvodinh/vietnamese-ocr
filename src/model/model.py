@@ -153,7 +153,11 @@ class Decoder(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        self.fc = nn.Linear(embed_size,vocab_size).to(device)
+        self.fc = self.fc = nn.Sequential(
+            nn.Linear(embed_size, 4*embed_size),
+            nn.ReLU(),
+            nn.Linear(4*embed_size,embed_size)
+        ).to(device)
 
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         x_embed = self.embed(x)
