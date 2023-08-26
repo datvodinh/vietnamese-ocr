@@ -3,11 +3,12 @@ import torch
 
 class Transform:
     train_transform = transforms.Compose([
-        transforms.Resize((112,112)),
+        transforms.Resize((64,118)),
         transforms.ToTensor(),
     ])
 
-
+# mean_H = 71.9, median_H = 64.
+# mean_W = 131.1, median_W = 118.
 
     
         

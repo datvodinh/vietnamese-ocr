@@ -27,7 +27,7 @@ class Trainer:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
 
-    def fit(self):
+    def train(self):
         for _ in range(self.config['num_epochs']):
             for src,target_input, target_output, target_padding, output_padding in self.dataloader:
                 logits         = self.model(src,target_input,target_padding) # (B,L,V)
@@ -37,6 +37,7 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                print(loss.detach().item())
                 
 
 
