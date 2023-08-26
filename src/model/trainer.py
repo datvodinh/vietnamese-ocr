@@ -15,10 +15,11 @@ class Trainer:
                  TARGET_PATH = None):
     
         self.config = config
-        self.vocabulary = Vocabulary(TARGET_PATH)
-        self.dataset = OCRDataset(root_dir=IMAGE_PATH,
-                                  transform=Transform.train_transform,
-                                  target_dict=self.vocabulary.target_dict)
+        self.vocabulary = Vocabulary(TARGET_PATH,config['device'])
+        self.dataset = OCRDataset(root_dir    = IMAGE_PATH,
+                                  device      = config['device'],
+                                  transform   = Transform.train_transform,
+                                  target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
         self.model = OCRModel(config,self.vocabulary.vocab_size)
