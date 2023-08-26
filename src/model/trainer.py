@@ -15,13 +15,15 @@ class Trainer:
                  TARGET_PATH = None):
     
         self.config = config
-        self.vocabulary = Vocabulary(TARGET_PATH,config['device'])
+        self.vocabulary = Vocabulary(data_path = TARGET_PATH,
+                                     device = config['device'])
         self.dataset = OCRDataset(root_dir    = IMAGE_PATH,
                                   device      = config['device'],
                                   transform   = Transform.train_transform,
                                   target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
+        self.len_loader = int(len(self.dataloader) / config['batch_size']) + 1
         self.model = OCRModel(config,self.vocabulary.vocab_size)
         self.writer = Writer()
 
@@ -30,6 +32,7 @@ class Trainer:
 
     def train(self):
         for _ in range(self.config['num_epochs']):
+            idx = 0
             for src,target_input, target_output, target_padding, output_padding in self.dataloader:
                 logits         = self.model(src,target_input,target_padding) # (B,L,V)
                 output_padding = output_padding.reshape(-1)
@@ -38,7 +41,7 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-                print(loss.detach().item())
+                print(f"| Epoch {_} | Batch {idx}/{self.len_loader} | Loss: {loss.detach().item():.4f}")
                 
 
 
