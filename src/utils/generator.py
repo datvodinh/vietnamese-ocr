@@ -8,6 +8,7 @@ import torch.nn.functional as F
 class OCRDataset(Dataset):
     def __init__(self, 
                  root_dir,
+                 device,
                  transform=None,
                  target_dict=None):
         
@@ -15,6 +16,7 @@ class OCRDataset(Dataset):
         self.transform        = transform
         self.image_paths      = os.listdir(root_dir)
         self.target_dict      = target_dict
+        self.device           = device
 
     def __len__(self):
         return len(self.image_paths)
@@ -31,4 +33,4 @@ class OCRDataset(Dataset):
         
         target_padding = (target_input>2) * 1.0
         output_padding = (target_output>2) * 1.0
-        return image,target_input, target_output, target_padding, output_padding
+        return image.to(self.device),target_input, target_output, target_padding.to(self.device), output_padding.to(self.device)

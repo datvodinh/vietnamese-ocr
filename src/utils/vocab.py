@@ -1,7 +1,7 @@
 import torch
 
 class Vocabulary:
-    def __init__(self,data_path=None):
+    def __init__(self,device,data_path=None):
         with open(data_path,"r") as f:
             data = f.read()
         new_data = list(map(lambda i:i.split("\t"),data.split("\n")))
@@ -17,7 +17,7 @@ class Vocabulary:
                 self.max_tar_len = len(x[1])
         
         self.add_special_token()
-        self.target_dict   = {x[0]:self.encode(x[1]).long() for x in new_data}
+        self.target_dict   = {x[0]:self.encode(x[1]).long().to(device) for x in new_data}
         self.vocab_size = len(vocab) + 3
         
     def encode(self, s):
