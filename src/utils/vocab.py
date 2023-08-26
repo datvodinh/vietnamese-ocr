@@ -18,7 +18,7 @@ class Vocabulary:
         
         self.add_special_token()
         self.target_dict   = {x[0]:self.encode(x[1]).long() for x in new_data}
-        self.vocab_size = len(vocab)
+        self.vocab_size = len(vocab) + 3
         
     def encode(self, s):
         indices = [self.letter_to_idx.get(i, None) for i in s]
@@ -36,6 +36,5 @@ class Vocabulary:
         self.idx_to_letter[0] = '<sos>'
         self.idx_to_letter[1] = '<eos>'
         self.idx_to_letter[2] = '<pad>'
-        self.vocab_size += 3
 
 
