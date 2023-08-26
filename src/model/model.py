@@ -142,7 +142,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size,embed_size).to(device)
+        self.embed = nn.Embedding(vocab_size+5,embed_size).to(device)
         self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
         self.decoder_layer = nn.ModuleList(
             [
