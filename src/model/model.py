@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from src.model.resnet import resnet18,resnet50
-from src.model.vgg import vgg19
-from src.model.swin_transformer import SwinTransformer
-
+from src.backbone.resnet import resnet18,resnet50
+from src.backbone.vgg import vgg19
+from src.backbone.swin_transformer import SwinTransformer
+from src.backbone.ViT import VisionTransformer
 class PositionalEncoding(nn.Module):
     def __init__(self,num_hiddens,device,dropout = 0.5,max_len=1000):
         super().__init__()
@@ -279,7 +279,7 @@ class OCRModel(nn.Module):
         self.model_type = config['encoder']['type']
 
         if self.model_type == 'resnet18':
-            self.cnn = resnet50().to(config['device'])
+            self.cnn = resnet18().to(config['device'])
             self.cnn_fc = nn.Linear(2048,config["transformer"]['embed_size']).to(config['device'])
         elif self.model_type == 'resnet50':
             self.cnn = resnet50().to(config['device'])
@@ -289,7 +289,8 @@ class OCRModel(nn.Module):
             self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
         elif self.model_type == 'swin_transformer':
             self.encoder = SwinTransformer(img_size=(64,128),embed_dim=48,window_size=8).to(config['device'])
-        
+        elif self.model_type == 'vision_transformer':
+            self.vit = VisionTransformer(config['ViT']['patch_size'],config["transformer"]['embed_size']).to(config['device'])
         self.fc = nn.Sequential(
             nn.ReLU(),
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
@@ -297,19 +298,27 @@ class OCRModel(nn.Module):
 
     def forward(self,src,target,padding=None):
 
-        if self.model_type != 'swin_transformer':
+        if self.model_type in ['resnet18','resnet50','vgg']:
             out_cnn = self.cnn(src)
             out_cnn = self.cnn_fc(out_cnn)
             if padding is not None:
                 out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
             else:
                 out_transformer = self.transformer(out_cnn,target)
-        else:
+
+        elif self.model_type == 'swin_transformer':
             encoder_out = self.encoder(src)
             if padding is not None:
                 padding = padding.unsqueeze(1)
             out_transformer = self.transformer.decoder(target,encoder_out,target_mask=self.transformer.target_mask(target),padding=self.transformer.padding_mask(padding))
         
+        elif self.model_type == 'vision_transformer':
+            out_vit = self.vit(src)
+            if padding is not None:
+                out_transformer = self.transformer(out_vit,target,padding.unsqueeze(1))
+            else:
+                out_transformer = self.transformer(out_vit,target)
+
         out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
         out = self.fc(out_transformer)
         return out
