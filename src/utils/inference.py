@@ -13,6 +13,16 @@ class Inference:
     
     @torch.no_grad()
     def predict(self,src,type='hard'):
+        '''
+        Generate predictions using the model.
+        
+        Args:
+            src (torch.Tensor): Input source tensor.
+            type (str, optional): Type of prediction to generate ('hard' or 'soft').
+        
+        Returns:
+            target (torch.Tensor): Generated target tensor.
+        '''
         c = 0
         target = torch.tensor([[0]]).long().to(device) # <sos>
         while target[0][-1] != 1 and c < 20: # <eos>

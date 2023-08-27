@@ -22,6 +22,19 @@ class OCRDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
+        '''
+        Retrieve an item from the dataset.
+        
+        Args:
+            idx (int): Index of the item to retrieve.
+        
+        Returns:
+            image (torch.Tensor): Input image tensor.
+            target_input (list): List of integers representing shifted-right target.
+            target_output (list): List of integers representing original target.
+            target_padding (torch.Tensor): Padding mask for shifted-right target.
+            output_padding (torch.Tensor): Padding mask for target.
+        '''
         image_path = os.path.join(self.root_dir, self.image_paths[idx])
         image = Image.open(image_path)
 

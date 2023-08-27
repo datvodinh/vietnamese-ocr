@@ -124,6 +124,20 @@ class DecoderBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self,x,enc_value,enc_key,src_mask=None,target_mask=None,padding=None):
+        '''
+        Perform a forward pass through the decoder block.
+        
+        Args:
+            x (torch.Tensor): Input tensor to the decoder block.
+            enc_value (torch.Tensor): Encoded values from the encoder.
+            enc_key (torch.Tensor): Encoded keys from the encoder.
+            src_mask (torch.Tensor, optional): Mask for source sequence.
+            target_mask (torch.Tensor, optional): Mask for target sequence.
+            padding (torch.Tensor, optional): Padding mask.
+        
+        Returns:
+            out (torch.Tensor): Output tensor from the decoder block.
+        '''
         out = self.layer_norm(x + self.attention(x,x,x,src_mask,padding))
         out = self.dropout(out)
         out = self.transformer_block(query   = out,
@@ -150,6 +164,17 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self,x,mask=None,padding=None):
+        '''
+        Perform a forward pass through the encoder.
+        
+        Args:
+            x (torch.Tensor): Input tensor to the encoder.
+            mask (torch.Tensor, optional): Mask for the input sequence.
+            padding (torch.Tensor, optional): Padding mask for the input sequence.
+        
+        Returns:
+            out (torch.Tensor): Output tensor from the encoder.
+        '''
         x_embed = self.position_embed(x)
         out = self.dropout(x_embed)
         for layer in self.encoder_layers:
@@ -175,6 +200,19 @@ class Decoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
+        '''
+        Perform a forward pass through the decoder.
+        
+        Args:
+            x (torch.Tensor): Input tensor to the decoder.
+            encoder_out (torch.Tensor): Output tensor from the encoder.
+            src_mask (torch.Tensor, optional): Mask for the source sequence.
+            target_mask (torch.Tensor, optional): Mask for the target sequence.
+            padding (torch.Tensor, optional): Padding mask.
+        
+        Returns:
+            out (torch.Tensor): Output tensor from the decoder.
+        '''
         x_embed = self.embed(x)
         x_embed = self.position_embed(x_embed)
         out = self.dropout(x_embed)
