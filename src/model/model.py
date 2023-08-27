@@ -76,7 +76,7 @@ class TransformerBlock(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Linear(embed_dim, 4*embed_dim),
-            nn.GeLU(),
+            nn.ReLU(),
             nn.Linear(4*embed_dim,embed_dim)
         ).to(device)
 
@@ -155,7 +155,7 @@ class Decoder(nn.Module):
 
         # self.fc = self.fc = nn.Sequential(
         #     nn.Linear(embed_size, 4*embed_size),
-        #     nn.GeLU(),
+        #     nn.ReLU(),
         #     nn.Linear(4*embed_size,embed_size)
         # ).to(device)
 
@@ -239,7 +239,7 @@ class OCRModel(nn.Module):
             self.encoder = SwinTransformer(img_size=(64,128),embed_dim=48,window_size=8).to(config['device'])
         
         self.fc = nn.Sequential(
-            nn.GeLU(),
+            nn.ReLU(),
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
         ).to(config['device'])
 
