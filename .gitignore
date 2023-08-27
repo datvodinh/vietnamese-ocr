@@ -162,3 +162,5 @@ cython_debug/
 a.ipynb
 .img/
 *.jpg
+test2.ipynb
+test1.ipynb

@@ -10,6 +10,8 @@ class Inference:
         self.model.load_state_dict(data_dict['state_dict'])
         self.model.eval()
         self.vocab = Vocabulary(device,TARGET_PATH)
+    
+    @torch.no_grad()
     def predict(self,src,type='hard'):
         c = 0
         target = torch.tensor([[0]]).long().to(device) # <sos>

@@ -27,9 +27,12 @@ class VGG(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
+        x = x.transpose(-1, -2)
+        x = x.flatten(2)
+        x = x.permute(0, 2, 1)
+        # x = self.avgpool(x)
+        # x = torch.flatten(x, 1)
+        # x = self.classifier(x)
         return x
 
     def _initialize_weights(self) -> None:

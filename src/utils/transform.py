@@ -3,7 +3,7 @@ import torch
 
 class Transform:
     train_transform = transforms.Compose([
-        transforms.Resize((64,118)),
+        transforms.Resize((64,128)),
         transforms.ToTensor(),
     ])
 

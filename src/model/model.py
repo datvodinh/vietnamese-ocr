@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from src.model.resnet import resnet18,resnet50
+from src.model.vgg import vgg19
+from src.model.swin_transformer import SwinTransformer
 
 class PositionalEncoding(nn.Module):
     def __init__(self,num_hiddens,device,dropout = 0.5,max_len=1000):
@@ -224,19 +226,40 @@ class OCRModel(nn.Module):
             bias        = config["transformer"]['bias']
         )
 
-        self.cnn = resnet18().to(config['device'])
-        self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+        self.model_type = config['encoder']['type']
+
+        if self.model_type == 'resnet18':
+            self.cnn = resnet50().to(config['device'])
+            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+        elif self.model_type == 'resnet50':
+            self.cnn = resnet50().to(config['device'])
+            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+        elif self.model_type == 'vgg':
+            self.cnn = vgg19().to(config['device'])
+            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+        elif self.model_type == 'swin_transformer':
+            self.encoder = SwinTransformer(img_size=(64,128),embed_dim=48,window_size=8).to(config['device'])
+        
         self.fc = nn.Sequential(
             nn.ReLU(),
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
         ).to(config['device'])
 
     def forward(self,src,target,padding=None):
-        out_cnn = self.cnn(src).unsqueeze(1)
-        if padding is not None:
-            out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
+
+        if self.model_type != 'swin_transformer':
+            out_cnn = self.cnn(src).unsqueeze(1)
+            out_cnn = self.cnn_fc(out_cnn)
+            if padding is not None:
+                out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
+            else:
+                out_transformer = self.transformer(out_cnn,target)
         else:
-            out_transformer = self.transformer(out_cnn,target)
+            encoder_out = self.encoder(src)
+            if padding is not None:
+                padding = padding.unsqueeze(1)
+            out_transformer = self.transformer.decoder(target,encoder_out,target_mask=self.transformer.target_mask(target),padding=self.transformer.padding_mask(padding))
+        
         out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
         out = self.fc(out_transformer)
         return out
