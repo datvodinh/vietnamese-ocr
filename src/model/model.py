@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision import models
+from src.model.resnet import resnet18,resnet50
 
 class PositionalEncoding(nn.Module):
     def __init__(self,num_hiddens,device,dropout = 0.5,max_len=1000):
@@ -224,7 +224,7 @@ class OCRModel(nn.Module):
             bias        = config["transformer"]['bias']
         )
 
-        self.cnn = models.resnet18().to(config['device'])
+        self.cnn = resnet18().to(config['device'])
         self.cnn.fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
         self.fc = nn.Sequential(
             nn.ReLU(),

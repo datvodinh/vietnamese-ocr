@@ -28,9 +28,10 @@ class OCRDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         
-        target_input = self.target_dict[self.image_paths[idx]][0:-1]
-        target_output = self.target_dict[self.image_paths[idx]][1:]
+        target_input = self.target_dict[self.image_paths[idx]][0:-1] # shifted right target
+        target_output = self.target_dict[self.image_paths[idx]][1:] # original target
         
-        target_padding = (target_input>1) * 1.0
-        output_padding = (target_output>1) * 1.0
+        target_padding = torch.where((target_output<2),0,1) # mask out <sos> <eos> <pad>
+        output_padding = torch.where(((target_output==0) | (target_output==2)),0,1) # mask out <sos> <pad>
+        
         return image.to(self.device),target_input, target_output, target_padding.to(self.device), output_padding.to(self.device)

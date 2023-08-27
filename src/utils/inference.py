@@ -10,14 +10,18 @@ class Inference:
         self.model.load_state_dict(data_dict['state_dict'])
         self.model.eval()
         self.vocab = Vocabulary(device,TARGET_PATH)
-    def predict(self,src):
+    def predict(self,src,type='hard'):
         c = 0
         target = torch.tensor([[0]]).long().to(device) # <sos>
         while target[0][-1] != 1 and c < 20: # <eos>
             logits = self.model(src,target)
             logits = logits[-1,:]
             probs = F.softmax(logits, dim=-1)
-            target_next = torch.argmax(probs)
-            target = torch.cat((target, target_next.unsqueeze(0).unsqueeze(0)), dim=1).to(device)
+            if type=='hard':
+                target_next = torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+            else:
+                target_next = torch.multinomial(probs, num_samples=1).unsqueeze(0)
+            target = torch.cat((target, target_next), dim=1).to(device)
             c+=1
         return target
+
