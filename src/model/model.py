@@ -20,6 +20,21 @@ class PositionalEncoding(nn.Module):
         x = x + self.PE[:,:x.shape[1],:]
         return self.dropout(x)
 
+class LearnableEmbedding(nn.Module):
+    def __init__(self, d_model, device, dropout=0.1, max_len=100):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        self.pos_embed = nn.Embedding(max_len, d_model).to(device)
+        self.layernorm = nn.LayerNorm(d_model)
+
+    def forward(self, x):
+        seq_len = x.size(0)
+        pos = torch.arange(seq_len, dtype=torch.long, device=x.device)
+        pos = pos.unsqueeze(-1).expand(x.size()[:2])
+        x = x + self.pos_embed(pos)
+        return self.dropout(self.layernorm(x))
+
 class MultiHeadAttention(nn.Module):
     def __init__(self,embed_size,heads,device,bias=False):
         super().__init__()
@@ -118,9 +133,12 @@ class DecoderBlock(nn.Module):
         return out
 
 class Encoder(nn.Module):
-    def __init__(self,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
+    def __init__(self,embed_size,heads,num_layers,max_len,dropout,device,bias=False,embed_type='position'):
         super().__init__()
-        self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
+        if embed_type == 'position':
+            self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
+        elif embed_type == "learned":
+            self.position_embed = LearnableEmbedding(embed_size,device,max_len=max_len,dropout=dropout)
         self.encoder_layers = nn.ModuleList(
             [
                 TransformerBlock(embed_size,heads,bias,device)
@@ -140,10 +158,13 @@ class Encoder(nn.Module):
         return out
     
 class Decoder(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False):
+    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False,embed_type='position'):
         super().__init__()
         self.embed = nn.Embedding(vocab_size,embed_size).to(device)
-        self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
+        if embed_type == 'position':
+            self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
+        elif embed_type == "learned":
+            self.position_embed = LearnableEmbedding(embed_size,device,max_len=max_len,dropout=dropout)
         self.decoder_layer = nn.ModuleList(
             [
                 DecoderBlock(embed_size,heads,dropout,device,bias)
@@ -152,12 +173,6 @@ class Decoder(nn.Module):
         )
 
         self.dropout = nn.Dropout(dropout)
-
-        # self.fc = self.fc = nn.Sequential(
-        #     nn.Linear(embed_size, 4*embed_size),
-        #     nn.ReLU(),
-        #     nn.Linear(4*embed_size,embed_size)
-        # ).to(device)
 
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         x_embed = self.embed(x)
@@ -171,17 +186,16 @@ class Decoder(nn.Module):
         return out
     
 class TransformerModel(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,block_size):
+    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,embed_type):
         
         super().__init__()
-        self.encoder = Encoder(embed_size,heads,num_layers,max_len,dropout,device,bias).to(device)
-        self.decoder = Decoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias).to(device)
+        self.encoder = Encoder(embed_size,heads,num_layers,max_len,dropout,device,bias,embed_type).to(device)
+        self.decoder = Decoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias,embed_type).to(device)
         self.apply(self._init_weights)
 
         self.optimizer = torch.optim.Adam(self.parameters(),lr=lr)
         self.device = device
         self.batch_size = batch_size
-        self.block_size = block_size
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -218,10 +232,10 @@ class OCRModel(nn.Module):
             max_len     = config["transformer"]['max_len'],
             dropout     = config["transformer"]['dropout'],
             device      = config['device'],
-            block_size  = config["transformer"]['block_size'],
             lr          = config['lr'],
             batch_size  = config['batch_size'],
-            bias        = config["transformer"]['bias']
+            bias        = config["transformer"]['bias'],
+            embed_type  = config["transformer"]['embed_type']
         )
 
         self.model_type = config['encoder']['type']
