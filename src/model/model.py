@@ -76,7 +76,7 @@ class TransformerBlock(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Linear(embed_dim, 4*embed_dim),
-            nn.ReLU(),
+            nn.GeLU(),
             nn.Linear(4*embed_dim,embed_dim)
         ).to(device)
 
@@ -153,11 +153,11 @@ class Decoder(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        self.fc = self.fc = nn.Sequential(
-            nn.Linear(embed_size, 4*embed_size),
-            nn.ReLU(),
-            nn.Linear(4*embed_size,embed_size)
-        ).to(device)
+        # self.fc = self.fc = nn.Sequential(
+        #     nn.Linear(embed_size, 4*embed_size),
+        #     nn.GeLU(),
+        #     nn.Linear(4*embed_size,embed_size)
+        # ).to(device)
 
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         x_embed = self.embed(x)
@@ -166,7 +166,7 @@ class Decoder(nn.Module):
         for layer in self.decoder_layer:
             out = layer(out,encoder_out,encoder_out,src_mask,target_mask,padding)
 
-        out = self.fc(out)
+        # out = self.fc(out)
 
         return out
     
@@ -228,10 +228,10 @@ class OCRModel(nn.Module):
 
         if self.model_type == 'resnet18':
             self.cnn = resnet50().to(config['device'])
-            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+            self.cnn_fc = nn.Linear(2048,config["transformer"]['embed_size']).to(config['device'])
         elif self.model_type == 'resnet50':
             self.cnn = resnet50().to(config['device'])
-            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
+            self.cnn_fc = nn.Linear(2048,config["transformer"]['embed_size']).to(config['device'])
         elif self.model_type == 'vgg':
             self.cnn = vgg19().to(config['device'])
             self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
@@ -239,14 +239,14 @@ class OCRModel(nn.Module):
             self.encoder = SwinTransformer(img_size=(64,128),embed_dim=48,window_size=8).to(config['device'])
         
         self.fc = nn.Sequential(
-            nn.ReLU(),
+            nn.GeLU(),
             nn.Linear(config["transformer"]['embed_size'],vocab_size)
         ).to(config['device'])
 
     def forward(self,src,target,padding=None):
 
         if self.model_type != 'swin_transformer':
-            out_cnn = self.cnn(src).unsqueeze(1)
+            out_cnn = self.cnn(src)
             out_cnn = self.cnn_fc(out_cnn)
             if padding is not None:
                 out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
