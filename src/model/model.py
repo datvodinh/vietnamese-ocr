@@ -109,13 +109,11 @@ class DecoderBlock(nn.Module):
         self.dropout = nn.Dropout()
 
     def forward(self,x,enc_value,enc_key,src_mask=None,target_mask=None,padding=None):
-        out = self.layer_norm(x + self.attention(x,x,x,src_mask))
+        out = self.layer_norm(x + self.attention(x,x,x,src_mask,padding))
         out = self.dropout(out)
         out = self.transformer_block(query   = out,
                                      key     = enc_key,
-                                     value   = enc_value,
-                                     mask    = target_mask,
-                                     padding = padding)
+                                     value   = enc_value)
 
         return out
 
