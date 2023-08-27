@@ -101,12 +101,12 @@ class TransformerBlock(nn.Module):
         return out
     
 class DecoderBlock(nn.Module):
-    def __init__(self,embed_size,heads,device,bias=False):
+    def __init__(self,embed_size,heads,dropout,device,bias=False):
         super().__init__()
         self.transformer_block = TransformerBlock(embed_size,heads,bias,device)
         self.attention = MultiHeadAttention(embed_size,heads,device,bias)
         self.layer_norm = nn.LayerNorm(embed_size).to(device)
-        self.dropout = nn.Dropout()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self,x,enc_value,enc_key,src_mask=None,target_mask=None,padding=None):
         out = self.layer_norm(x + self.attention(x,x,x,src_mask,padding))
@@ -146,7 +146,7 @@ class Decoder(nn.Module):
         self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
         self.decoder_layer = nn.ModuleList(
             [
-                DecoderBlock(embed_size,heads,device,bias)
+                DecoderBlock(embed_size,heads,dropout,device,bias)
                 for _ in range(num_layers)
             ]
         )
