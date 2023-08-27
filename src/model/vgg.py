@@ -62,7 +62,7 @@ def make_layers(cfg: List[Union[str, int]], batch_norm: bool = False) -> nn.Sequ
             in_channels = v
     return nn.Sequential(*layers)
 
-def vgg19(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VGG:
+def vgg19(**kwargs: Any) -> VGG:
     r"""VGG 19-layer model (configuration "E")
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
@@ -71,11 +71,9 @@ def vgg19(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> VGG
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _vgg('vgg19', 'E', False, pretrained, progress, **kwargs)
+    return _vgg('vgg19', 'E', False, **kwargs)
 
-def _vgg(arch: str, cfg: str, batch_norm: bool, pretrained: bool, progress: bool, **kwargs: Any) -> VGG:
-    if pretrained:
-        kwargs['init_weights'] = False
+def _vgg(arch: str, cfg: str, batch_norm: bool, **kwargs: Any) -> VGG:
     model = VGG(make_layers(cfgs[cfg], batch_norm=batch_norm), **kwargs)
     return model
 
