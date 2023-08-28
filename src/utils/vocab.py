@@ -16,7 +16,7 @@ class Vocabulary:
             if len(x[1]) > self.max_tar_len:
                 self.max_tar_len = len(x[1])
         
-        self.add_special_token()
+        self._add_special_token()
         self.target_dict   = {x[0]:self.encode(x[1]).long().to(device) for x in new_data}
         self.vocab_size = len(vocab) + 3
         
@@ -29,7 +29,7 @@ class Vocabulary:
         decoded_chars = [c for c in chars if c not in ['<sos>', '<eos>','<pad>']]
         return "".join(decoded_chars)
     
-    def add_special_token(self):
+    def _add_special_token(self):
         self.letter_to_idx['<sos>'] = 0
         self.letter_to_idx['<eos>'] = 1
         self.letter_to_idx['<pad>'] = 2

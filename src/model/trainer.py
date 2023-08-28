@@ -1,7 +1,7 @@
 from src.utils.vocab import Vocabulary
 from src.utils.generator import OCRDataset
 from src.utils.transform import Transform
-from src.model.model import OCRModel
+from src.model.model import OCRTransformerModel
 from src.utils.writer import Writer
 
 from torch.utils.data import DataLoader
@@ -14,21 +14,20 @@ class Trainer:
                  IMAGE_PATH = None,
                  TARGET_PATH = None):
     
-        self.config = config
-        self.vocabulary = Vocabulary(data_path = TARGET_PATH,
-                                     device = config['device'])
-        self.dataset = OCRDataset(root_dir    = IMAGE_PATH,
-                                  device      = config['device'],
-                                  transform   = Transform.train_transform,
-                                  target_dict = self.vocabulary.target_dict)
+        self.config     = config
+        self.vocabulary = Vocabulary(data_path  = TARGET_PATH,
+                                    device      = config['device'])
+        self.dataset    = OCRDataset(root_dir   = IMAGE_PATH,
+                                    device      = config['device'],
+                                    transform   = Transform.train_transform,
+                                    target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
         self.len_loader = len(self.dataloader)
-        self.model = OCRModel(config,self.vocabulary.vocab_size)
-        self.writer = Writer()
-
-        self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
+        self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
+        self.writer     = Writer()
+        self.criterion  = nn.CrossEntropyLoss()
+        self.optimizer  = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
 
     def train(self):
         for _ in range(self.config['num_epochs']):

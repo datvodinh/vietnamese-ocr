@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from src.backbone.resnet import resnet18,resnet50
 from src.backbone.vgg import vgg19
 from src.backbone.swin_transformer import SwinTransformer
@@ -23,10 +24,10 @@ class PositionalEncoding(nn.Module):
 class LearnableEmbedding(nn.Module):
     def __init__(self, d_model, device, dropout=0.1, max_len=100):
         super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p=dropout).to(device)
 
         self.pos_embed = nn.Embedding(max_len, d_model).to(device)
-        self.layernorm = nn.LayerNorm(d_model)
+        self.layernorm = nn.LayerNorm(d_model).to(device)
 
     def forward(self, x):
         seq_len = x.size(0)
@@ -147,22 +148,39 @@ class DecoderBlock(nn.Module):
         return out
 
 class Encoder(nn.Module):
-    def __init__(self,embed_size,heads,num_layers,max_len,dropout,device,bias=False,embed_type='position'):
+    def __init__(self,config_trans,config_enc,device):
         super().__init__()
-        if embed_type == 'position':
-            self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
-        elif embed_type == "learned":
-            self.position_embed = LearnableEmbedding(embed_size,device,max_len=max_len,dropout=dropout)
+        if config_trans['embed_type'] == 'position':
+            self.position_embed = PositionalEncoding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
+        elif config_trans['embed_type'] == "learned":
+            self.position_embed = LearnableEmbedding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
         self.encoder_layers = nn.ModuleList(
             [
-                TransformerBlock(embed_size,heads,bias,device)
-                for _ in range(num_layers)
+                TransformerBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['bias'],device)
+                for _ in range(config_trans['num_layers'])
             ]
 
         )
 
-        self.dropout = nn.Dropout(dropout)
-
+        self.dropout = nn.Dropout(config_trans['dropout'])
+        self.encoder_type = config_enc['type']
+        if self.encoder_type == 'resnet18':
+            self.cnn = resnet18().to(device)
+            self.cnn_fc = nn.Linear(512,config_trans['embed_size']).to(device)
+        elif self.encoder_type == 'resnet50':
+            self.cnn = resnet50().to(device)
+            self.cnn_fc = nn.Linear(2048,config_trans['embed_size']).to(device)
+        elif self.encoder_type == 'vgg':
+            self.cnn = vgg19().to(device)
+            self.cnn_fc = nn.Linear(512,config_trans['embed_size']).to(device)
+        elif self.encoder_type == 'swin_transformer':
+            self.encoder = SwinTransformer(img_size    = config_enc['swin']['img_size'],
+                                           embed_dim   = config_enc['swin']['embed_dim'],
+                                           window_size = config_enc['swin']['window_size']).to(device)
+        elif self.encoder_type == 'vision_transformer':
+            self.vit = VisionTransformer(patch_size = config_enc['ViT']['patch_size'],
+                                         embed_size = config_trans['embed_size']).to(device)
+        
     def forward(self,x,mask=None,padding=None):
         '''
         Perform a forward pass through the encoder.
@@ -175,31 +193,43 @@ class Encoder(nn.Module):
         Returns:
             out (torch.Tensor): Output tensor from the encoder.
         '''
-        x_embed = self.position_embed(x)
-        out = self.dropout(x_embed)
-        for layer in self.encoder_layers:
-            out = layer(out,out,out,mask,padding)
-    
+        if self.encoder_type in ['resnet18','resnet50','vgg']:
+            out_cnn = self.cnn(x)
+            out_cnn = self.cnn_fc(out_cnn)
+            x_embed = self.position_embed(out_cnn)
+            out = self.dropout(x_embed)
+            for layer in self.encoder_layers:
+                out = layer(out,out,out,mask,padding)
+
+        elif self.encoder_type == 'swin_transformer':
+            out = self.encoder(x)
+        elif self.encoder_type == 'vision_transformer':
+            out_vit = self.vit(x)
+            x_embed = self.position_embed(out_vit)
+            out = self.dropout(x_embed)
+            for layer in self.encoder_layers:
+                out = layer(out,out,out,mask,padding)
+
         return out
     
 class Decoder(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias=False,embed_type='position'):
+    def __init__(self,config_trans,vocab_size,device):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size,embed_size).to(device)
-        if embed_type == 'position':
-            self.position_embed = PositionalEncoding(embed_size,device,max_len=max_len,dropout=dropout)
-        elif embed_type == "learned":
-            self.position_embed = LearnableEmbedding(embed_size,device,max_len=max_len,dropout=dropout)
+        self.embed = nn.Embedding(vocab_size,config_trans['embed_size']).to(device)
+        if config_trans['embed_type'] == 'position':
+            self.position_embed = PositionalEncoding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
+        elif config_trans['embed_type'] == "learned":
+            self.position_embed = LearnableEmbedding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
         self.decoder_layer = nn.ModuleList(
             [
-                DecoderBlock(embed_size,heads,dropout,device,bias)
-                for _ in range(num_layers)
+                DecoderBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['dropout'],device,config_trans['bias'])
+                for _ in range(config_trans['num_layers'])
             ]
         )
 
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(config_trans['dropout'])
 
-    def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
+    def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None,mode='train'):
         '''
         Perform a forward pass through the decoder.
         
@@ -218,23 +248,18 @@ class Decoder(nn.Module):
         out = self.dropout(x_embed)
         for layer in self.decoder_layer:
             out = layer(out,encoder_out,encoder_out,src_mask,target_mask,padding)
-
-        # out = self.fc(out)
-
+        
         return out
     
-class TransformerModel(nn.Module):
-    def __init__(self,vocab_size,embed_size,heads,num_layers,max_len,dropout,bias,device,lr,batch_size,embed_type):
-        
+class OCRTransformerModel(nn.Module):
+    def __init__(self,config,vocab_size):
         super().__init__()
-        self.encoder = Encoder(embed_size,heads,num_layers,max_len,dropout,device,bias,embed_type).to(device)
-        self.decoder = Decoder(vocab_size,embed_size,heads,num_layers,max_len,dropout,device,bias,embed_type).to(device)
+        self.encoder = Encoder(config["transformer"],config["encoder"],config["device"])
+        self.decoder = Decoder(config["transformer"],vocab_size,config["device"])
+        self.fc = nn.Linear(config["transformer"]['embed_size'],vocab_size).to(config["device"])
         self.apply(self._init_weights)
-
-        self.optimizer = torch.optim.Adam(self.parameters(),lr=lr)
-        self.device = device
-        self.batch_size = batch_size
-
+        self.device = config["device"]
+        
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
@@ -254,74 +279,27 @@ class TransformerModel(nn.Module):
         else:
             return None
     
-    def forward(self,src,target,tar_pad=None):
-        encoder_out = self.encoder(src)
-        out = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad))
-        return out
-    
-class OCRModel(nn.Module):
-    def __init__(self,config,vocab_size):
-        super().__init__()
-        self.transformer = TransformerModel(
-            vocab_size  = vocab_size,
-            embed_size  = config["transformer"]['embed_size'],
-            heads       = config["transformer"]['num_heads'],
-            num_layers  = config["transformer"]['num_layers'],
-            max_len     = config["transformer"]['max_len'],
-            dropout     = config["transformer"]['dropout'],
-            device      = config['device'],
-            lr          = config['lr'],
-            batch_size  = config['batch_size'],
-            bias        = config["transformer"]['bias'],
-            embed_type  = config["transformer"]['embed_type']
-        )
-
-        self.model_type = config['encoder']['type']
-
-        if self.model_type == 'resnet18':
-            self.cnn = resnet18().to(config['device'])
-            self.cnn_fc = nn.Linear(2048,config["transformer"]['embed_size']).to(config['device'])
-        elif self.model_type == 'resnet50':
-            self.cnn = resnet50().to(config['device'])
-            self.cnn_fc = nn.Linear(2048,config["transformer"]['embed_size']).to(config['device'])
-        elif self.model_type == 'vgg':
-            self.cnn = vgg19().to(config['device'])
-            self.cnn_fc = nn.Linear(512,config["transformer"]['embed_size']).to(config['device'])
-        elif self.model_type == 'swin_transformer':
-            self.encoder = SwinTransformer(img_size=(64,128),embed_dim=48,window_size=8).to(config['device'])
-        elif self.model_type == 'vision_transformer':
-            self.vit = VisionTransformer(config['ViT']['patch_size'],config["transformer"]['embed_size']).to(config['device'])
-        self.fc = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(config["transformer"]['embed_size'],vocab_size)
-        ).to(config['device'])
-
-    def forward(self,src,target,padding=None):
-
-        if self.model_type in ['resnet18','resnet50','vgg']:
-            out_cnn = self.cnn(src)
-            out_cnn = self.cnn_fc(out_cnn)
-            if padding is not None:
-                out_transformer = self.transformer(out_cnn,target,padding.unsqueeze(1))
-            else:
-                out_transformer = self.transformer(out_cnn,target)
-
-        elif self.model_type == 'swin_transformer':
+    def forward(self,src,target,tar_pad=None,mode='train'):
+        if mode == 'train':
             encoder_out = self.encoder(src)
-            if padding is not None:
-                padding = padding.unsqueeze(1)
-            out_transformer = self.transformer.decoder(target,encoder_out,target_mask=self.transformer.target_mask(target),padding=self.transformer.padding_mask(padding))
-        
-        elif self.model_type == 'vision_transformer':
-            out_vit = self.vit(src)
-            if padding is not None:
-                out_transformer = self.transformer(out_vit,target,padding.unsqueeze(1))
-            else:
-                out_transformer = self.transformer(out_vit,target)
-
-        out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
-        out = self.fc(out_transformer)
-        return out
-    
+            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad),mode=mode)
+            out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
+            out = self.fc(out_transformer)
+            return out
+        elif mode == 'predict':
+            with torch.no_grad():
+                encoder_out = self.encoder(src)
+                c = 0
+                while target[0][-1] != 1 and c < 20: # <eos>
+                    out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad),mode=mode)
+                    out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
+                    logits = self.fc(out_transformer)
+                    logits = logits[-1,:]
+                    probs = F.softmax(logits, dim=-1)
+                    target_next = torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+                    target = torch.cat((target, target_next), dim=1).to(self.device)
+                    c+=1
+            return target[0]
+            
 
 
