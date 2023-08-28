@@ -229,7 +229,7 @@ class Decoder(nn.Module):
 
         self.dropout = nn.Dropout(config_trans['dropout'])
 
-    def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None,mode='train'):
+    def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         '''
         Perform a forward pass through the decoder.
         
@@ -282,7 +282,7 @@ class OCRTransformerModel(nn.Module):
     def forward(self,src,target,tar_pad=None,mode='train'):
         if mode == 'train':
             encoder_out = self.encoder(src)
-            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad),mode=mode)
+            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad.unsqueeze(0)))
             out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
             out = self.fc(out_transformer)
             return out
@@ -291,7 +291,7 @@ class OCRTransformerModel(nn.Module):
                 encoder_out = self.encoder(src)
                 c = 0
                 while target[0][-1] != 1 and c < 20: # <eos>
-                    out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad),mode=mode)
+                    out_transformer = self.decoder(target,encoder_out)
                     out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
                     logits = self.fc(out_transformer)
                     logits = logits[-1,:]
