@@ -19,7 +19,7 @@ class Trainer:
                                     device      = config['device'])
         self.dataset    = OCRDataset(root_dir   = IMAGE_PATH,
                                     device      = config['device'],
-                                    transform   = Transform.train_transform,
+                                    transform   = Transform(t_type=config['preprocessing']),
                                     target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
