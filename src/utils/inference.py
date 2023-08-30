@@ -11,7 +11,7 @@ class Inference:
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
-        self.transform = Transform()
+        self.transform = Transform('sobel')
 
     def predict(self,img,**kwargs):
         src = self.transform(img).unsqueeze(0).to(device)

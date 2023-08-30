@@ -38,12 +38,12 @@ class Trainer:
     def train(self):
         for e in range(self.config['num_epochs']):
             idx = 0
-            for src,target_input, target_output, target_padding, output_padding in self.dataloader:
+            for src,target_input, target_output, target_padding in self.dataloader:
                 start_time     = time.perf_counter()
                 logits         = self.model(src,target_input,target_padding) # (B,L,V)
-                output_padding = output_padding.reshape(-1)
+                target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
-                loss           = self.criterion(logits[output_padding!=0],target_output[output_padding!=0])
+                loss           = self.criterion(logits[target_padding!=0],target_output[target_padding!=0])
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
