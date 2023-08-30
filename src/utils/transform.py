@@ -11,8 +11,8 @@ class SobelTranform(object):
 
     def __call__(self, img):
       # Apply Sobel operators using convolution
-      gradient_x = F.conv2d(img.unsqueeze(0), self.sobel_x.unsqueeze(0).unsqueeze(0))
-      gradient_y = F.conv2d(img.unsqueeze(0), self.sobel_y.unsqueeze(0).unsqueeze(0))
+      gradient_x = F.conv2d(img.unsqueeze(0), self.sobel_x.unsqueeze(0).unsqueeze(0),padding=1)
+      gradient_y = F.conv2d(img.unsqueeze(0), self.sobel_y.unsqueeze(0).unsqueeze(0),padding=1)
       # Compute magnitude and direction of gradients
       magnitude = torch.sqrt(gradient_x**2 + gradient_y**2)
       return magnitude.squeeze(0)

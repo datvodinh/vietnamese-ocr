@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
+
 from src.backbone.resnet import resnet18,resnet50
 from src.backbone.vgg import vgg19
 from src.backbone.swin_transformer import SwinTransformer
@@ -166,17 +168,18 @@ class Encoder(nn.Module):
         self.encoder_type = config_enc['type']
         if self.encoder_type == 'resnet18':
             self.cnn = resnet18().to(device)
-            self.cnn_fc = nn.Linear(512,config_trans['embed_size']).to(device)
+            self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'resnet50':
             self.cnn = resnet50().to(device)
-            self.cnn_fc = nn.Linear(2048,config_trans['embed_size']).to(device)
+            self.cnn_conv = nn.Conv2d(2048,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'vgg':
             self.cnn = vgg19().to(device)
-            self.cnn_fc = nn.Linear(512,config_trans['embed_size']).to(device)
+            self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'swin_transformer':
             self.encoder = SwinTransformer(img_size    = config_enc['swin']['img_size'],
                                            embed_dim   = config_enc['swin']['embed_dim'],
-                                           window_size = config_enc['swin']['window_size']).to(device)
+                                           window_size = config_enc['swin']['window_size'],
+                                           in_chans=config_enc['swin']['in_channels']).to(device)
         elif self.encoder_type == 'vision_transformer':
             self.vit = VisionTransformer(patch_size = config_enc['ViT']['patch_size'],
                                          embed_size = config_trans['embed_size']).to(device)
@@ -195,7 +198,8 @@ class Encoder(nn.Module):
         '''
         if self.encoder_type in ['resnet18','resnet50','vgg']:
             out_cnn = self.cnn(x)
-            out_cnn = self.cnn_fc(out_cnn)
+            out_cnn = self.cnn_conv(out_cnn).flatten(2)
+            out_cnn = out_cnn.permute(0,2,1)
             x_embed = self.position_embed(out_cnn)
             out = self.dropout(x_embed)
             for layer in self.encoder_layers:
@@ -279,7 +283,7 @@ class OCRTransformerModel(nn.Module):
         else:
             return None
     
-    def forward(self,src,target,tar_pad=None,mode='train'):
+    def forward(self,src,target,tar_pad=None,mode='train',**kwargs):
         if mode == 'train':
             encoder_out = self.encoder(src)
             out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad.unsqueeze(0)))
@@ -290,16 +294,95 @@ class OCRTransformerModel(nn.Module):
             with torch.no_grad():
                 encoder_out = self.encoder(src)
                 c = 0
-                while target[0][-1] != 1 and c < 20: # <eos>
+                while target[0][-1] != 1 and c < 30: # <eos>
                     out_transformer = self.decoder(target,encoder_out)
                     out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
                     logits = self.fc(out_transformer)
                     logits = logits[-1,:]
-                    probs = F.softmax(logits, dim=-1)
-                    target_next = torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+                    if kwargs['sampling'] == 'soft':
+                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
+                        probs = F.softmax(logits / kwargs['temperature'], dim=-1)
+                        target_next = torch.multinomial(probs, num_samples=1).unsqueeze(0) # (B, 1)
+                    elif kwargs['sampling'] == 'top_k':
+                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
+                        target_next = self.top_k_sampling(logits=logits,k=kwargs['k'])
+                        target_next = torch.tensor(target_next).unsqueeze(0).unsqueeze(0).to(self.device)
+                    elif kwargs['sampling'] == 'top_p':
+                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
+                        target_next = self.top_p_sampling(logits=logits,p=kwargs['p'])
+                        target_next = torch.tensor(target_next).unsqueeze(0).unsqueeze(0).to(self.device)
+                    elif kwargs['sampling'] == 'hard':
+                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
+                        probs = F.softmax(logits, dim=-1)
+                        target_next = torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+                    elif kwargs['sampling'] == 'repeat_penalty':
+                        logits = self.apply_repeat_penalty(logits,target[0][-3:])
+                        probs = F.softmax(logits / kwargs['temperature'], dim=-1)
+                        target_next = torch.multinomial(probs, num_samples=1).unsqueeze(0) # (B, 1)
+                    if target.shape[1] >=3:
+                        if target_next == target[0][-2] and target[0][-1] == target[0][-3]:
+                            target_next[0][0] = 1
                     target = torch.cat((target, target_next), dim=1).to(self.device)
                     c+=1
             return target[0]
-            
+           
+    def top_k_sampling(self,logits,k=5):
+        """
+        Perform top-k sampling on the given logits.
 
+        Args:
+        logits (numpy.ndarray): Array of logits representing the predicted probabilities.
+        k (int): Number of top candidates to consider for sampling.
 
+        Returns:
+        selected_token (int): The selected token after top-k sampling.
+        """
+        logits = logits.cpu().numpy()
+        sorted_indices = np.argsort(logits)[::-1]  # Sort in descending order
+        top_indices = sorted_indices[:k]
+        top_probs = self.stable_softmax(logits[top_indices])
+        selected_index = np.random.choice(top_indices, p=top_probs)
+        return selected_index
+
+    def top_p_sampling(self,logits, p=0.9):
+        """
+        Perform top-p sampling on the given logits.
+
+        Args:
+        logits (numpy.ndarray): Array of logits representing the predicted probabilities.
+        p (float): Cumulative probability threshold.
+
+        Returns:
+        selected_token (int): The selected token after top-p sampling.
+        """
+        logits = logits.cpu().numpy()
+        sorted_indices = np.argsort(logits)[::-1]  # Sort in descending order
+        sorted_probs = self.stable_softmax(logits[sorted_indices])
+        
+        cumulative_probs = np.cumsum(sorted_probs)
+        selected_index = np.argmax(cumulative_probs > p)  # Find the index where cumulative probability exceeds p
+        
+        return sorted_indices[selected_index]
+
+    @staticmethod     
+    def stable_softmax(logits):
+        """
+        Compute the stabilized softmax of logits.
+
+        Args:
+        logits (numpy.ndarray): Array of logits.
+
+        Returns:
+        softmax_probs (numpy.ndarray): Stabilized softmax probabilities.
+        """
+        max_logit = np.max(logits)
+        logits_shifted = logits - max_logit
+        exp_logits_shifted = np.exp(logits_shifted)
+        softmax_probs = exp_logits_shifted / np.sum(exp_logits_shifted)
+        return softmax_probs
+
+    def apply_repeat_penalty(self, logits, generated_tokens):
+        for token in set(generated_tokens):
+            logits[token] = logits[token] - 0.5
+        return logits
+    

@@ -166,3 +166,9 @@ test2.ipynb
 test1.ipynb
 preprocess
 *.pth
+*.pt
+test_backbone.ipynb
+test_small.ipynb
+preprocessing.ipynb
+preprocess2
+data

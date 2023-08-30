@@ -215,10 +215,6 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = x.transpose(-1, -2)
-        x = x.flatten(2)
-        x = x.permute(0, 2, 1)
-
         return x
 
     def forward(self, x: Tensor) -> Tensor:

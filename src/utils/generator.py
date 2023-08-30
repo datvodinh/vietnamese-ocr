@@ -35,7 +35,7 @@ class OCRDataset(Dataset):
             output_padding (torch.Tensor): Padding mask for target.
         '''
         image_path = os.path.join(self.root_dir, self.image_paths[idx])
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert("L")
 
         if self.transform:
             image = self.transform(image)

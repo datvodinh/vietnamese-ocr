@@ -17,19 +17,22 @@ class Trainer:
                  TARGET_PATH = None):
     
         self.config     = config
-        self.vocabulary = Vocabulary(data_path  = TARGET_PATH,
-                                    device      = config['device'])
-        self.dataset    = OCRDataset(root_dir   = IMAGE_PATH,
-                                    device      = config['device'],
-                                    transform   = Transform(t_type=config['preprocessing']),
-                                    target_dict = self.vocabulary.target_dict)
+        self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
+                                     device      = config['device'])
+        self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
+                                     device      = config['device'],
+                                     transform   = Transform(t_type=config['preprocessing']),
+                                     target_dict = self.vocabulary.target_dict)
         
-        self.dataloader = DataLoader(self.dataset,config['batch_size'],shuffle=True)
+        self.dataloader = DataLoader(dataset     = self.dataset,
+                                     batch_size  = config['batch_size'],
+                                     shuffle     = True)
+        
         self.len_loader = len(self.dataloader)
         self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
-        self.optimizer  = torch.optim.Adam(self.model.parameters(),lr=config['lr'])
+        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=config['lr'])
         self.pro_bar    = CustomProgressBar(config['num_epochs'],self.len_loader)
 
     def train(self):
