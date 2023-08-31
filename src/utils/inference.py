@@ -13,12 +13,13 @@ class Inference:
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
         self.transform = Transform('sobel')
+        print(data_dict['config'])
 
     def predict(self,img,**kwargs):
         src = self.transform(img).unsqueeze(0).to(device)
         target = torch.tensor([[0]]).long().to(device) # <sos>
         target = self.model(src,target,mode='predict',**kwargs)
-        return self._remove_repetition(self.decode(target))
+        return self.decode(target)
     def encode(self, s):
         indices = [self.letter_to_idx.get(i, None) for i in s]
         pad_len = self.max_tar_len - len(s) + 1

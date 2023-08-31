@@ -8,7 +8,7 @@ from src.backbone.vgg import vgg19
 from src.backbone.swin_transformer import SwinTransformer
 from src.backbone.ViT import VisionTransformer
 class PositionalEncoding(nn.Module):
-    def __init__(self,num_hiddens,device,dropout = 0.5,max_len=1000):
+    def __init__(self,num_hiddens,device,dropout = 0.2,max_len=1000):
         super().__init__()
         PE = torch.zeros((1,max_len,num_hiddens)).to(device)
         self.dropout = nn.Dropout(dropout)
@@ -300,28 +300,20 @@ class OCRTransformerModel(nn.Module):
                     logits = self.fc(out_transformer)
                     logits = logits[-1,:]
                     if kwargs['sampling'] == 'soft':
-                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
                         probs = F.softmax(logits / kwargs['temperature'], dim=-1)
                         target_next = torch.multinomial(probs, num_samples=1).unsqueeze(0) # (B, 1)
                     elif kwargs['sampling'] == 'top_k':
-                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
                         target_next = self.top_k_sampling(logits=logits,k=kwargs['k'])
                         target_next = torch.tensor(target_next).unsqueeze(0).unsqueeze(0).to(self.device)
                     elif kwargs['sampling'] == 'top_p':
-                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
                         target_next = self.top_p_sampling(logits=logits,p=kwargs['p'])
                         target_next = torch.tensor(target_next).unsqueeze(0).unsqueeze(0).to(self.device)
                     elif kwargs['sampling'] == 'hard':
-                        # logits = self.apply_repeat_penalty(logits,target[0][-3:])
-                        probs = F.softmax(logits, dim=-1)
-                        target_next = torch.argmax(probs).unsqueeze(0).unsqueeze(0)
+                        target_next = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
                     elif kwargs['sampling'] == 'repeat_penalty':
                         logits = self.apply_repeat_penalty(logits,target[0][-3:])
                         probs = F.softmax(logits / kwargs['temperature'], dim=-1)
                         target_next = torch.multinomial(probs, num_samples=1).unsqueeze(0) # (B, 1)
-                    if target.shape[1] >=3:
-                        if target_next == target[0][-2] and target[0][-1] == target[0][-3]:
-                            target_next[0][0] = 1
                     target = torch.cat((target, target_next), dim=1).to(self.device)
                     c+=1
             return target[0]
@@ -383,6 +375,6 @@ class OCRTransformerModel(nn.Module):
 
     def apply_repeat_penalty(self, logits, generated_tokens):
         for token in set(generated_tokens):
-            logits[token] = logits[token] - 0.5
+            logits[token] = logits[token] - 10
         return logits
     

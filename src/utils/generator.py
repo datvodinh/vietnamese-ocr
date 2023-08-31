@@ -31,8 +31,7 @@ class OCRDataset(Dataset):
             image (torch.Tensor): Input image tensor.
             target_input (list): List of integers representing shifted-right target.
             target_output (list): List of integers representing original target.
-            target_padding (torch.Tensor): Padding mask for shifted-right target.
-            output_padding (torch.Tensor): Padding mask for target.
+            target_padding (torch.Tensor): Padding mask for target
         '''
         image_path = os.path.join(self.root_dir, self.image_paths[idx])
         image = Image.open(image_path).convert("L")
