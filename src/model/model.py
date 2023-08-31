@@ -332,25 +332,24 @@ class OCRTransformerModel(nn.Module):
         selected_index = np.random.choice(top_indices, p=top_probs)
         return selected_index
 
-    def top_p_sampling(self,logits, p=0.9):
-        """
-        Perform top-p sampling on the given logits.
-
-        Args:
-        logits (numpy.ndarray): Array of logits representing the predicted probabilities.
-        p (float): Cumulative probability threshold.
-
-        Returns:
-        selected_token (int): The selected token after top-p sampling.
-        """
+    def top_p_sampling(self,logits, p=0.8):
         logits = logits.cpu().numpy()
-        sorted_indices = np.argsort(logits)[::-1]  # Sort in descending order
-        sorted_probs = self.stable_softmax(logits[sorted_indices])
+        sorted_indices = np.argsort(logits)[::-1]
+        sorted_logits = logits[sorted_indices]
+        cumulative_probs = np.cumsum(sorted_logits)
         
-        cumulative_probs = np.cumsum(sorted_probs)
-        selected_index = np.argmax(cumulative_probs > p)  # Find the index where cumulative probability exceeds p
+        # Find the smallest set of words whose cumulative probability exceeds p
+        sorted_indices = sorted_indices[cumulative_probs > p]
+        min_index = sorted_indices[0] if len(sorted_indices) > 0 else len(logits) - 1
         
-        return sorted_indices[selected_index]
+        # Set probabilities of all words outside the set to 0
+        logits[:min_index] = -float('inf')
+        probabilities = self.stable_softmax(logits)
+        
+        # Sample from the modified distribution
+        sampled_index = np.random.choice(len(logits), size=1, p=probabilities)[0]
+        
+        return sampled_index
 
     @staticmethod     
     def stable_softmax(logits):
