@@ -57,6 +57,7 @@ class Trainer:
                 loss           = self.criterion(logits,target_output)
                 self.optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=self.config["max_grad_norm"])
                 self.optimizer.step()
                 self.scheduler.step()
                 with torch.no_grad():

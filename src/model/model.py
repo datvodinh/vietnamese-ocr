@@ -72,7 +72,7 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             dot_product = dot_product.masked_fill(mask==0,float('-1e20'))
         if padding is not None:
-            dot_product = dot_product.masked_fill(padding==0,float('-1e20'))
+            dot_product = dot_product.masked_fill(padding[:,None,:,None]==0,float('-1e20'))
         scaled_product = torch.softmax(dot_product ,dim=-1)
         alpha = torch.einsum("bhqk,bvhd->bqhd",scaled_product,values)
         out = self.fc(alpha.reshape(query.shape[0],query.shape[1],self.embed_size))
@@ -145,7 +145,8 @@ class DecoderBlock(nn.Module):
         out = self.dropout(out)
         out = self.transformer_block(query   = out,
                                      key     = enc_key,
-                                     value   = enc_value)
+                                     value   = enc_value,
+                                     padding = padding)
 
         return out
 
@@ -181,7 +182,7 @@ class Encoder(nn.Module):
                                            window_size = config_enc['swin']['window_size'],
                                            in_chans=config_enc['swin']['in_channels']).to(device)
         elif self.encoder_type == 'vision_transformer':
-            self.vit = VisionTransformer(patch_size = config_enc['ViT']['patch_size'],
+            self.vit = VisionTransformer(patch_size = 16,
                                          embed_size = config_trans['embed_size']).to(device)
         
     def forward(self,x,mask=None,padding=None):
@@ -277,16 +278,11 @@ class OCRTransformerModel(nn.Module):
         target_mask = torch.tril(torch.ones((target_len,target_len))).expand(batch_size,1,target_len,target_len)
         return target_mask.to(self.device)
     
-    def padding_mask(self,padding=None):
-        if padding is not None:
-            return (padding.transpose(2,1) @ padding).unsqueeze(1)
-        else:
-            return None
     
     def forward(self,src,target,tar_pad=None,mode='train',**kwargs):
         if mode == 'train':
             encoder_out = self.encoder(src)
-            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=self.padding_mask(tar_pad.unsqueeze(0)))
+            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=tar_pad)
             out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
             out = self.fc(out_transformer)
             return out
