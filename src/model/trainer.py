@@ -32,9 +32,13 @@ class Trainer:
         self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
-        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=config['lr'])
+        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=config['lr']['start'])
         self.pro_bar    = CustomProgressBar(config['num_epochs'],self.len_loader)
-
+        self.scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer = self.optimizer,
+                                                                     factor    = config['lr']['factor'],
+                                                                     patience  = config['lr']['patience'],
+                                                                     verbose   = True)
+        # self.scheduler  = torch.optim.lr_scheduler.CosineAnnealingLR()
     def train(self):
         for e in range(self.config['num_epochs']):
             idx = 0
@@ -43,13 +47,19 @@ class Trainer:
                 logits         = self.model(src,target_input,target_padding) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
-                loss           = self.criterion(logits[target_padding!=0],target_output[target_padding!=0])
+                logits         = logits[target_padding!=0]
+                target_output  = target_output[target_padding!=0]
+                loss           = self.criterion(logits,target_output)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-                idx+=1
-                self.stat.update_loss(loss.detach().item())
-                self.pro_bar.step(idx,e,self.stat.loss,start_time)
+                with torch.no_grad():
+                    acc = torch.mean((torch.argmax(logits,dim=1)==target_output).float())
+                    idx+=1
+                    self.stat.update_loss(loss.detach().item())
+                    self.stat.update_acc(acc,torch.sum(target_padding).item())
+                    self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time)
+            self.scheduler.step(self.stat.loss)
             self.stat.reset()
                 
 

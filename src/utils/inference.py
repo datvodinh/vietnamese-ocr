@@ -2,6 +2,7 @@ from src.model.model import OCRTransformerModel
 from src.utils.transform import Transform
 import torch
 import torch.nn.functional as F
+import re
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 class Inference:
     def __init__(self,MODEL_PATH):
@@ -17,7 +18,7 @@ class Inference:
         src = self.transform(img).unsqueeze(0).to(device)
         target = torch.tensor([[0]]).long().to(device) # <sos>
         target = self.model(src,target,mode='predict',**kwargs)
-        return self.decode(target)
+        return self._remove_repetition(self.decode(target))
     def encode(self, s):
         indices = [self.letter_to_idx.get(i, None) for i in s]
         pad_len = self.max_tar_len - len(s) + 1
@@ -26,3 +27,7 @@ class Inference:
         chars = [self.idx_to_letter[int(i)] for i in idx]
         decoded_chars = [c for c in chars if c not in ['<sos>', '<eos>','<pad>']]
         return "".join(decoded_chars)
+    
+    @staticmethod
+    def _remove_repetition(input_string):
+        return re.sub(r'(.{2,})\1+', r'\1', input_string)
