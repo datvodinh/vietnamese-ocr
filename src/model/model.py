@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import math
 
 from src.backbone.resnet import resnet18,resnet50
 from src.backbone.vgg import vgg19
@@ -29,7 +30,7 @@ class LearnableEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout).to(device)
 
         self.pos_embed = nn.Embedding(max_len, d_model).to(device)
-        self.layernorm = nn.LayerNorm(d_model).to(device)
+        self.layernorm = LayerNorm(d_model).to(device)
 
     def forward(self, x):
         seq_len = x.size(0)
@@ -37,6 +38,20 @@ class LearnableEmbedding(nn.Module):
         pos = pos.unsqueeze(-1).expand(x.size()[:2])
         x = x + self.pos_embed(pos)
         return self.dropout(self.layernorm(x))
+
+class LayerNorm(nn.Module):
+    "A layernorm module in the TF style (epsilon inside the square root)."
+    def __init__(self, d_model, variance_epsilon=1e-12):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.ones(d_model))
+        self.beta  = nn.Parameter(torch.zeros(d_model))
+        self.variance_epsilon = variance_epsilon
+
+    def forward(self, x):
+        u = x.mean(-1, keepdim=True)
+        s = (x - u).pow(2).mean(-1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.variance_epsilon)
+        return self.gamma * x + self.beta  
 
 class MultiHeadAttention(nn.Module):
     def __init__(self,embed_size,heads,device,bias=False):
@@ -232,6 +247,8 @@ class Decoder(nn.Module):
             ]
         )
 
+        self.d_model = config_trans['embed_size']
+
     def forward(self,x,encoder_out,target_mask=None,padding=None):
         '''
         Perform a forward pass through the decoder.
@@ -246,7 +263,7 @@ class Decoder(nn.Module):
         Returns:
             out (torch.Tensor): Output tensor from the decoder.
         '''
-        x_embed = self.embed(x)
+        x_embed = self.embed(x) * math.sqrt(self.d_model)
         out = self.position_embed(x_embed)
         for layer in self.decoder_layer:
             out = layer(out,encoder_out,encoder_out,target_mask,padding)
@@ -288,7 +305,7 @@ class OCRTransformerModel(nn.Module):
                 encoder_out = self.encoder(src)
                 c = 0
                 while target[0][-1] != 1 and c < 30: # <eos>
-                    out_transformer = self.decoder(target,encoder_out)
+                    out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target))
                     out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
                     logits = self.fc(out_transformer)
                     logits = logits[-1,:]
