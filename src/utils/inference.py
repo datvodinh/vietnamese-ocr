@@ -20,10 +20,6 @@ class Inference:
         target = torch.tensor([[0]]).long().to(device) # <sos>
         target = self.model(src,target,mode='predict',**kwargs)
         return self.decode(target)
-    def encode(self, s):
-        indices = [self.letter_to_idx.get(i, None) for i in s]
-        pad_len = self.max_tar_len - len(s) + 1
-        return torch.tensor([self.letter_to_idx['<sos>']] + indices + [self.letter_to_idx['<eos>']] + [self.letter_to_idx['<pad>']]*pad_len, dtype=torch.float32)
     def decode(self, idx):
         chars = [self.idx_to_letter[int(i)] for i in idx]
         decoded_chars = [c for c in chars if c not in ['<sos>', '<eos>','<pad>']]

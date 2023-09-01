@@ -232,8 +232,6 @@ class Decoder(nn.Module):
             ]
         )
 
-        self.dropout = nn.Dropout(config_trans['dropout'])
-
     def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
         '''
         Perform a forward pass through the decoder.
@@ -249,8 +247,7 @@ class Decoder(nn.Module):
             out (torch.Tensor): Output tensor from the decoder.
         '''
         x_embed = self.embed(x)
-        x_embed = self.position_embed(x_embed)
-        out = self.dropout(x_embed)
+        out = self.position_embed(x_embed)
         for layer in self.decoder_layer:
             out = layer(out,encoder_out,encoder_out,src_mask,target_mask,padding)
         
