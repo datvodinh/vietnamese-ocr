@@ -80,7 +80,8 @@ class Trainer:
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=self.config["max_grad_norm"])
                 self.optimizer.step()
-                # self.scheduler.step()
+                if self.config['scheduler']['active']:
+                    self.scheduler.step()
                 with torch.no_grad():
                     acc = torch.mean((torch.argmax(logits,dim=1)==target_output).float())
                     idx+=1
