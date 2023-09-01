@@ -126,7 +126,7 @@ class DecoderBlock(nn.Module):
         self.layer_norm = nn.LayerNorm(embed_size).to(device)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self,x,enc_value,enc_key,src_mask=None,target_mask=None,padding=None):
+    def forward(self,x,enc_value,enc_key,target_mask=None,padding=None):
         '''
         Perform a forward pass through the decoder block.
         
@@ -141,7 +141,7 @@ class DecoderBlock(nn.Module):
         Returns:
             out (torch.Tensor): Output tensor from the decoder block.
         '''
-        out = self.layer_norm(x + self.attention(x,x,x,src_mask,padding))
+        out = self.layer_norm(x + self.attention(x,x,x,target_mask,padding))
         out = self.dropout(out)
         out = self.transformer_block(query   = out,
                                      key     = enc_key,
@@ -232,7 +232,7 @@ class Decoder(nn.Module):
             ]
         )
 
-    def forward(self,x,encoder_out,src_mask=None,target_mask=None,padding=None):
+    def forward(self,x,encoder_out,target_mask=None,padding=None):
         '''
         Perform a forward pass through the decoder.
         
@@ -249,7 +249,7 @@ class Decoder(nn.Module):
         x_embed = self.embed(x)
         out = self.position_embed(x_embed)
         for layer in self.decoder_layer:
-            out = layer(out,encoder_out,encoder_out,src_mask,target_mask,padding)
+            out = layer(out,encoder_out,encoder_out,target_mask,padding)
         
         return out
     
