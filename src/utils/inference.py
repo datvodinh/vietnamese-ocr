@@ -12,7 +12,7 @@ class Inference:
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
-        self.transform = Transform('sobel')
+        self.transform = Transform(training=False)
         print(data_dict['config'])
 
     def predict(self,img,**kwargs):

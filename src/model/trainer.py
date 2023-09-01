@@ -9,20 +9,29 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import time
-import math
+import os
 
+def seed_everything(seed=42):
+  os.environ['PYTHONHASHSEED'] = str(seed)
+  torch.manual_seed(seed)
+  torch.backends.cudnn.deterministic = True
+  torch.backends.cudnn.benchmark = False
+
+seed_everything(42)
 class Trainer:
     def __init__(self,
                  config,
+                 MODEL_PATH = None,
                  IMAGE_PATH = None,
                  TARGET_PATH = None):
-    
+
+
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
                                      device      = config['device'])
         self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
                                      device      = config['device'],
-                                     transform   = Transform(t_type=config['preprocessing']),
+                                     transform   = Transform(),
                                      target_dict = self.vocabulary.target_dict)
         
         self.dataloader = DataLoader(dataset     = self.dataset,
@@ -30,11 +39,22 @@ class Trainer:
                                      shuffle     = True)
         
         self.len_loader = len(self.dataloader)
-        self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
+        if MODEL_PATH is not None:
+            try:
+                data_dict = torch.load(MODEL_PATH)
+                self.model = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'])
+                self.model.load_state_dict(data_dict['state_dict'])
+                self.config = config
+                print('TRAINING CONTINUE!')
+            except:
+                print("TRAIN FROM BEGINNING!")
+        else:    
+            self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
+            print("TRAIN FROM BEGINNING!")
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
-        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=config['lr'])
-        self.pro_bar    = CustomProgressBar(config['num_epochs'],self.len_loader)
+        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
+        self.pro_bar    = CustomProgressBar(self.config['num_epochs'],self.len_loader)
 
         self.scheduler  = CosineAnnealingWarmupRestarts(optimizer         = self.optimizer,
                                                         first_cycle_steps = config['scheduler']['first_cycle_steps'],
@@ -44,6 +64,7 @@ class Trainer:
                                                         warmup_steps      = config['scheduler']['warmup_steps'],
                                                         gamma             = config['scheduler']['gamma'])
         # self.scheduler  = torch.optim.lr_scheduler.CosineAnnealingLR()
+        
     def train(self):
         for e in range(self.config['num_epochs']):
             idx = 0
@@ -59,7 +80,7 @@ class Trainer:
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=self.config["max_grad_norm"])
                 self.optimizer.step()
-                self.scheduler.step()
+                # self.scheduler.step()
                 with torch.no_grad():
                     acc = torch.mean((torch.argmax(logits,dim=1)==target_output).float())
                     idx+=1
