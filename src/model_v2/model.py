@@ -187,9 +187,8 @@ class OCRTransformerModel(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def target_mask(self,target):
-        mask = (torch.triu(torch.ones(target.shape[1], target.shape[1])) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask.to(self.device)
+        mask = (torch.triu(torch.ones(target.shape[1], target.shape[1])) == 0).transpose(0, 1)
+        return mask.bool().to(self.device)
     
     
     def forward(self,src,target,tar_pad=None,mode='train'):
