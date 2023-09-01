@@ -87,7 +87,7 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             dot_product = dot_product.masked_fill(mask==0,float('-1e20'))
         if padding is not None:
-            dot_product = dot_product.masked_fill(padding[:,None,:,None]==0,float('-1e20'))
+            dot_product = dot_product.masked_fill(padding[:,None,None,:]==0,float('-1e20'))
         scaled_product = torch.softmax(dot_product ,dim=-1)
         alpha = torch.einsum("bhqk,bvhd->bqhd",scaled_product,values)
         out = self.fc(alpha.reshape(query.shape[0],query.shape[1],self.embed_size))
@@ -160,8 +160,7 @@ class DecoderBlock(nn.Module):
         out = self.dropout(out)
         out = self.transformer_block(query   = out,
                                      key     = enc_key,
-                                     value   = enc_value,
-                                     padding = padding)
+                                     value   = enc_value)
 
         return out
 
