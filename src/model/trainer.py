@@ -36,7 +36,8 @@ class Trainer:
         
         self.dataloader = DataLoader(dataset     = self.dataset,
                                      batch_size  = config['batch_size'],
-                                     shuffle     = True)
+                                     shuffle     = True,
+                                     num_workers = config['dataloader']['num_workers'])
         
         self.len_loader = len(self.dataloader)
         if MODEL_PATH is not None:
