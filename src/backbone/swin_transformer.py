@@ -144,20 +144,6 @@ class WindowAttention(nn.Module):
     def extra_repr(self) -> str:
         return f'dim={self.dim}, window_size={self.window_size}, num_heads={self.num_heads}'
 
-    def flops(self, N):
-        # calculate flops for 1 window with token length of N
-        flops = 0
-        # qkv = self.qkv(x)
-        flops += N * self.dim * 3 * self.dim
-        # attn = (q @ k.transpose(-2, -1))
-        flops += self.num_heads * N * (self.dim // self.num_heads) * N
-        #  x = (attn @ v)
-        flops += self.num_heads * N * N * (self.dim // self.num_heads)
-        # x = self.proj(x)
-        flops += N * self.dim * self.dim
-        return flops
-
-
 class SwinTransformerBlock(nn.Module):
     r""" Swin Transformer Block.
 
@@ -277,21 +263,6 @@ class SwinTransformerBlock(nn.Module):
         return f"dim={self.dim}, input_resolution={self.input_resolution}, num_heads={self.num_heads}, " \
                f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
 
-    def flops(self):
-        flops = 0
-        H, W = self.input_resolution
-        # norm1
-        flops += self.dim * H * W
-        # W-MSA/SW-MSA
-        nW = H * W / self.window_size / self.window_size
-        flops += nW * self.attn.flops(self.window_size * self.window_size)
-        # mlp
-        flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
-        # norm2
-        flops += self.dim * H * W
-        return flops
-
-
 class PatchMerging(nn.Module):
     r""" Patch Merging Layer.
 
@@ -333,13 +304,6 @@ class PatchMerging(nn.Module):
 
     def extra_repr(self) -> str:
         return f"input_resolution={self.input_resolution}, dim={self.dim}"
-
-    def flops(self):
-        H, W = self.input_resolution
-        flops = H * W * self.dim
-        flops += (H // 2) * (W // 2) * 4 * self.dim * 2 * self.dim
-        return flops
-
 
 class BasicLayer(nn.Module):
     """ A basic Swin Transformer layer for one stage.
@@ -405,15 +369,6 @@ class BasicLayer(nn.Module):
     def extra_repr(self) -> str:
         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
 
-    def flops(self):
-        flops = 0
-        for blk in self.blocks:
-            flops += blk.flops()
-        if self.downsample is not None:
-            flops += self.downsample.flops()
-        return flops
-
-
 class PatchEmbed(nn.Module):
     r""" Image to Patch Embedding
 
@@ -453,13 +408,6 @@ class PatchEmbed(nn.Module):
         if self.norm is not None:
             x = self.norm(x)
         return x
-
-    def flops(self):
-        Ho, Wo = self.patches_resolution
-        flops = Ho * Wo * self.embed_dim * self.in_chans * (self.patch_size[0] * self.patch_size[1])
-        if self.norm is not None:
-            flops += Ho * Wo * self.embed_dim
-        return flops
 
 
 class SwinTransformer(nn.Module):
@@ -543,9 +491,6 @@ class SwinTransformer(nn.Module):
             self.layers.append(layer)
 
         self.norm = norm_layer(self.num_features)
-        self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
-
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -574,21 +519,10 @@ class SwinTransformer(nn.Module):
         for layer in self.layers:
             x = layer(x)
 
-        x = self.norm(x)  # B L C
-        # x = self.avgpool(x.transpose(1, 2))  # B C 1
-        # x = torch.flatten(x, 1)
+        # x = self.norm(x)  # B L C
         return x
 
     def forward(self, x):
         x = self.forward_features(x)
         # x = self.head(x)
         return x
-
-    def flops(self):
-        flops = 0
-        flops += self.patch_embed.flops()
-        for i, layer in enumerate(self.layers):
-            flops += layer.flops()
-        flops += self.num_features * self.patches_resolution[0] * self.patches_resolution[1] // (2 ** self.num_layers)
-        flops += self.num_features * self.num_classes
-        return flops

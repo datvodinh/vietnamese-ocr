@@ -23,7 +23,6 @@ class Transform:
             self.transform = alb.Compose(
                 [
                     alb.Resize(64, 128),
-                    alb.ImageCompression(95, p=.3),
                     alb.ToGray(always_apply=True),
                     alb.Normalize(),
                     # alb.Sharpen()

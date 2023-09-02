@@ -78,7 +78,7 @@ class Trainer:
                 logits         = logits[target_padding!=0]
                 target_output  = target_output[target_padding!=0]
                 loss           = self.criterion(logits,target_output)
-                self.optimizer.zero_grad()
+                self.optimizer.zero_grad(set_to_none=True)
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=self.config["max_grad_norm"])
                 self.optimizer.step()

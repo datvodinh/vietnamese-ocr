@@ -30,15 +30,13 @@ class LearnableEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout).to(device)
 
         self.pos_embed = nn.Embedding(max_len, d_model).to(device)
-        self.layernorm = LayerNorm(d_model).to(device)
 
     def forward(self, x):
-        seq_len = x.size(0)
+        seq_len = x.size(1)
         pos = torch.arange(seq_len, dtype=torch.long, device=x.device)
-        pos = pos.unsqueeze(-1).expand(x.size()[:2])
+        pos = pos.unsqueeze(0).expand(x.size()[:2])
         x = x + self.pos_embed(pos)
-        return self.dropout(self.layernorm(x))
-
+        return self.dropout(x)
 class LayerNorm(nn.Module):
     "A layernorm module in the TF style (epsilon inside the square root)."
     def __init__(self, d_model, variance_epsilon=1e-12):
@@ -57,12 +55,12 @@ class MultiHeadAttention(nn.Module):
     def __init__(self,embed_size,heads,device,bias=False):
         super().__init__()
         self.embed_size = embed_size
-        self.heads = heads
-        self.heads_dim = int(embed_size / heads)
-        self.keys = nn.Linear(embed_size,embed_size,bias=bias).to(device)
-        self.queries = nn.Linear(embed_size,embed_size,bias=bias).to(device)
-        self.values = nn.Linear(embed_size,embed_size,bias=bias).to(device)
-        self.fc = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.heads      = heads
+        self.heads_dim  = int(embed_size / heads)
+        self.keys       = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.queries    = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.values     = nn.Linear(embed_size,embed_size,bias=bias).to(device)
+        self.fc         = nn.Linear(embed_size,embed_size,bias=bias).to(device)
 
     def forward(self,query,key,value,mask=None,padding=None):
         '''
@@ -83,18 +81,19 @@ class MultiHeadAttention(nn.Module):
 
         keys = keys / (self.embed_size)**(1/4)
         queries = queries / (self.embed_size)**(1/4)
-        dot_product = torch.einsum('bkhd,bqhd->bhqk',keys,queries) # (batch_size,heads,query_len,key_len)
+        dot_product = torch.einsum('bqhd,bkhd->bhqk',queries,keys) # (batch_size,heads,query_len,key_len)
         if mask is not None:
             dot_product = dot_product.masked_fill(mask==0,float('-1e20'))
         if padding is not None:
-            dot_product = dot_product.masked_fill(padding[:,None,None,:]==0,float('-1e20'))
+            dot_product = dot_product.masked_fill(padding[:,None,None,:]==0,float('-1e20')).masked_fill(padding[:,None,:,None]==0,float('-1e20'))
+            
         scaled_product = torch.softmax(dot_product ,dim=-1)
         alpha = torch.einsum("bhqk,bvhd->bqhd",scaled_product,values)
         out = self.fc(alpha.reshape(query.shape[0],query.shape[1],self.embed_size))
         return out
     
 class TransformerBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads, bias,device):
+    def __init__(self, embed_dim, num_heads,dropout, bias,device):
         """
         Overview: Initialize a Transformer Block.
         
@@ -113,6 +112,8 @@ class TransformerBlock(nn.Module):
             nn.Linear(4*embed_dim,embed_dim)
         ).to(device)
 
+        self.dropout = nn.Dropout(dropout)
+
     def forward(self, query, key, value, mask=None,padding=None):
         """
         - Overview: Forward pass of the Transformer Block.
@@ -126,9 +127,9 @@ class TransformerBlock(nn.Module):
             out (tensor): Output tensor after the Transformer Block.
         """
         a_score  = self.attention(query,key,value, mask,padding)
-        out      = self.layer_norm1(a_score + query)
+        out      = self.dropout(self.layer_norm1(a_score + query))
         out_ffn  = self.fc(out)
-        out      = self.layer_norm2(out + out_ffn)
+        out      = self.dropout(self.layer_norm2(out + out_ffn))
         assert torch.isnan(out).any() == False, "Transformer block returned NaN!"
 
         return out
@@ -136,10 +137,10 @@ class TransformerBlock(nn.Module):
 class DecoderBlock(nn.Module):
     def __init__(self,embed_size,heads,dropout,device,bias=False):
         super().__init__()
-        self.transformer_block = TransformerBlock(embed_size,heads,bias,device)
-        self.attention = MultiHeadAttention(embed_size,heads,device,bias)
-        self.layer_norm = nn.LayerNorm(embed_size).to(device)
-        self.dropout = nn.Dropout(dropout)
+        self.transformer_block = TransformerBlock(embed_size,heads,dropout,bias,device)
+        self.attention         = MultiHeadAttention(embed_size,heads,device,bias)
+        self.layer_norm        = nn.LayerNorm(embed_size).to(device)
+        self.dropout           = nn.Dropout(dropout)
 
     def forward(self,x,enc_value,enc_key,target_mask=None,padding=None):
         '''
@@ -156,9 +157,8 @@ class DecoderBlock(nn.Module):
         Returns:
             out (torch.Tensor): Output tensor from the decoder block.
         '''
-        out = self.layer_norm(x + self.attention(x,x,x,target_mask,padding))
-        out = self.dropout(out)
-        out = self.transformer_block(query   = out,
+        a_out = self.dropout(self.layer_norm(x + self.attention(x,x,x,target_mask,padding)))
+        out = self.transformer_block(query   = a_out,
                                      key     = enc_key,
                                      value   = enc_value)
 
@@ -171,22 +171,30 @@ class Encoder(nn.Module):
             self.position_embed = PositionalEncoding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
         elif config_trans['embed_type'] == "learned":
             self.position_embed = LearnableEmbedding(config_trans['embed_size'],device,max_len=config_trans['max_len'],dropout=config_trans['dropout'])
-        self.encoder_layers = nn.ModuleList(
-            [
-                TransformerBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['bias'],device)
-                for _ in range(config_trans['num_layers'])
-            ]
-
-        )
+        
 
         self.dropout = nn.Dropout(config_trans['dropout'])
         self.encoder_type = config_enc['type']
         if self.encoder_type == 'resnet18':
             self.cnn = resnet18().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
+            self.encoder_layers = nn.ModuleList(
+            [
+                TransformerBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['bias'],device)
+                for _ in range(config_trans['num_layers'])
+            ]
+
+        )
         elif self.encoder_type == 'resnet50':
             self.cnn = resnet50().to(device)
             self.cnn_conv = nn.Conv2d(2048,config_trans['embed_size'],1).to(device)
+            self.encoder_layers = nn.ModuleList(
+            [
+                TransformerBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['dropout'],config_trans['bias'],device)
+                for _ in range(config_trans['num_layers'])
+            ]
+
+        )
         elif self.encoder_type == 'vgg':
             self.cnn = vgg19().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
@@ -194,10 +202,17 @@ class Encoder(nn.Module):
             self.encoder = SwinTransformer(img_size    = config_enc['swin']['img_size'],
                                            embed_dim   = config_enc['swin']['embed_dim'],
                                            window_size = config_enc['swin']['window_size'],
-                                           in_chans=config_enc['swin']['in_channels']).to(device)
+                                           in_chans    = config_enc['swin']['in_channels']).to(device)
         elif self.encoder_type == 'vision_transformer':
             self.vit = VisionTransformer(patch_size = 16,
                                          embed_size = config_trans['embed_size']).to(device)
+            self.encoder_layers = nn.ModuleList(
+            [
+                TransformerBlock(config_trans['embed_size'],config_trans['num_heads'],config_trans['dropout'],config_trans['bias'],device)
+                for _ in range(config_trans['num_layers'])
+            ]
+
+        )
         
     def forward(self,x,mask=None,padding=None):
         '''
@@ -283,8 +298,6 @@ class OCRTransformerModel(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def target_mask(self,target):
         batch_size,target_len = target.shape
@@ -292,7 +305,7 @@ class OCRTransformerModel(nn.Module):
         return target_mask.to(self.device)
     
     
-    def forward(self,src,target,tar_pad=None,mode='train',**kwargs):
+    def forward(self,src,target,tar_pad=None,mode='train'):
         if mode == 'train':
             encoder_out = self.encoder(src)
             out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=tar_pad)
@@ -307,9 +320,8 @@ class OCRTransformerModel(nn.Module):
                     out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target))
                     out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
                     logits = self.fc(out_transformer)
-                    print(logits.shape)
                     logits = logits[-1,:]
-                    print(logits.shape)
+                    print(torch.max(logits))
                     target_next = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
                     target = torch.cat((target, target_next), dim=1).to(self.device)
                     c+=1

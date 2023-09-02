@@ -1,4 +1,4 @@
-from src.model.model import OCRTransformerModel
+from src.model_v2.model import OCRTransformerModel
 from src.utils.transform import Transform
 import torch
 import torch.nn.functional as F
@@ -15,10 +15,10 @@ class Inference:
         self.transform = Transform(training=False)
         print(data_dict['config'])
 
-    def predict(self,img,**kwargs):
+    def predict(self,img):
         src = self.transform(img).unsqueeze(0).to(device)
         target = torch.tensor([[0]]).long().to(device) # <sos>
-        target = self.model(src,target,mode='predict',**kwargs)
+        target = self.model(src,target,mode='predict')
         return self.decode(target)
     def decode(self, idx):
         chars = [self.idx_to_letter[int(i)] for i in idx]

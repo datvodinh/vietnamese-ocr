@@ -72,7 +72,7 @@ class Trainer:
             idx = 0
             for src,target_input, target_output, target_padding in self.dataloader:
                 start_time     = time.perf_counter()
-                logits         = self.model(src,target_input,target_padding) # (B,L,V)
+                logits         = self.model(src,target_input) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
                 logits         = logits[target_padding!=0]

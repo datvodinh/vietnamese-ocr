@@ -167,7 +167,7 @@ class Decoder(nn.Module):
         out = self.position_embed(x_embed)
         out = self.decoder(out,encoder_out,tgt_mask = target_mask,tgt_key_padding_mask = padding)
         
-        return out.permute(1,0,2)
+        return out
     
 class OCRTransformerModel(nn.Module):
     def __init__(self,config,vocab_size):
@@ -183,9 +183,6 @@ class OCRTransformerModel(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
     def target_mask(self,target):
         mask = (torch.triu(torch.ones(target.shape[1], target.shape[1])) == 0).transpose(0, 1)
         return mask.bool().to(self.device)
@@ -194,7 +191,7 @@ class OCRTransformerModel(nn.Module):
     def forward(self,src,target,tar_pad=None,mode='train'):
         if mode == 'train':
             encoder_out = self.encoder(src)
-            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=(tar_pad==0))
+            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=(tar_pad==0) if tar_pad is not None else None)
             out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
             out = self.fc(out_transformer)
             return out
@@ -206,9 +203,7 @@ class OCRTransformerModel(nn.Module):
                     out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target))
                     out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
                     logits = self.fc(out_transformer)
-                    print(logits.shape)
                     logits = logits[-1,:]
-                    print(logits.shape)
                     target_next = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
                     target = torch.cat((target, target_next), dim=1).to(self.device)
                     c+=1
