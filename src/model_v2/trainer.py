@@ -48,10 +48,13 @@ class Trainer:
                 self.config = config
                 print('TRAINING CONTINUE!')
             except:
+                self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
                 print("TRAIN FROM BEGINNING!")
         else:    
             self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
             print("TRAIN FROM BEGINNING!")
+
+        self.model_path = MODEL_PATH
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
         self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
@@ -90,8 +93,19 @@ class Trainer:
                     self.stat.update_loss(loss.detach().item())
                     self.stat.update_acc(acc,torch.sum(target_padding).item())
                     self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time)
+            if e % self.config['save_per_epochs']==0:
+                self._save_checkpoint(e)
             
             self.stat.reset()
                 
-
+    def _save_checkpoint(self,name):
+        save_dict = {
+            'state_dict':self.model.state_dict(),
+            'config':self.config,
+            'vocab_size':self.vocabulary.vocab_size,
+            'letter_to_idx': self.vocabulary.letter_to_idx,
+            'idx_to_letter': self.vocabulary.idx_to_letter
+        }
+        file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{name}.pt"
+        torch.save(save_dict, file_path)
 
