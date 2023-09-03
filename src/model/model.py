@@ -97,7 +97,7 @@ class Encoder(nn.Module):
                                            drop_rate   = config_enc['swin']['dropout']).to(device)
         
         elif self.encoder_type == 'swin_transformer_v2':
-            self.encoder = SwinTransformerV2(img_size    = config_enc['swin']['img_size'],
+            self.encoder = SwinTransformerV2(img_size  = config_enc['swin']['img_size'],
                                            embed_dim   = config_enc['swin']['embed_dim'],
                                            window_size = config_enc['swin']['window_size'],
                                            in_chans    = config_enc['swin']['in_channels'],
