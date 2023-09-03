@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn
 import math
 
-from src.backbone.resnet import resnet18,resnet50
-from src.backbone.vgg import vgg19
+from src.backbone.resnet import ResNet18, ResNet50
+from src.backbone.vgg import VGG19
 from src.backbone.swin_transformer import SwinTransformer
 from src.backbone.swin_transformer_v2 import SwinTransformerV2
-from src.backbone.ViT import VisionTransformer
 
 class PositionalEncoding(nn.Module):
     def __init__(self,num_hiddens,device,dropout = 0.2,max_len=1000):
@@ -81,13 +80,13 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(config_trans['dropout'])
         self.encoder_type = config_enc['type']
         if self.encoder_type == 'resnet18':
-            self.cnn = resnet18().to(device)
+            self.cnn = ResNet18().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'resnet50':
-            self.cnn = resnet50().to(device)
+            self.cnn = ResNet50().to(device)
             self.cnn_conv = nn.Conv2d(2048,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'vgg':
-            self.cnn = vgg19().to(device)
+            self.cnn = VGG19().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'swin_transformer':
             self.encoder = SwinTransformer(img_size    = config_enc['swin']['img_size'],
@@ -102,11 +101,8 @@ class Encoder(nn.Module):
                                            window_size = config_enc['swin']['window_size'],
                                            in_chans    = config_enc['swin']['in_channels'],
                                            drop_rate   = config_enc['swin']['dropout']).to(device)
-        elif self.encoder_type == 'vision_transformer':
-            self.vit = VisionTransformer(patch_size = 16,
-                                         embed_size = config_trans['embed_size']).to(device)
-        
-    def forward(self,x,mask=None,padding=None):
+
+    def forward(self,x):
         '''
         Perform a forward pass through the encoder.
         
@@ -119,20 +115,18 @@ class Encoder(nn.Module):
             out (torch.Tensor): Output tensor from the encoder.
         '''
         if self.encoder_type in ['resnet18','resnet50','vgg']:
-            out_cnn = self.cnn(x)
+            out_cnn = self.cnn(x) # (B,C,H/32,W/32)
             out_cnn = self.cnn_conv(out_cnn).flatten(2)
-            out_cnn = out_cnn.permute(0,2,1)
+            out_cnn = out_cnn.permute(0,2,1) # (B,L,C)
             x_embed = self.position_embed(out_cnn)
-            out = self.dropout(x_embed)
-            out = self.encoder(out).permute(1,0,2)
+            out = self.encoder(x_embed) # (B,L,C)
 
         elif self.encoder_type in ['swin_transformer','swin_transformer_v2']:
-            out = self.encoder(x)
+            out = self.encoder(x) # (B, H/32 * W/32, C)
         elif self.encoder_type == 'vision_transformer':
             out_vit = self.vit(x)
             x_embed = self.position_embed(out_vit)
-            out = self.dropout(x_embed)
-            out = self.encoder(out).permute(1,0,2)
+            out = self.encoder(x_embed)
 
         return out
     
@@ -197,7 +191,7 @@ class OCRTransformerModel(nn.Module):
     
     def forward(self,src,target,tar_pad=None,mode='train'):
         if mode == 'train':
-            encoder_out = self.encoder(src)
+            encoder_out = self.encoder(src) # (B,H/32 * W/32,C)
             out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=(tar_pad==0) if tar_pad is not None else None)
             out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
             out = self.fc(out_transformer)
