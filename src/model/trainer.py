@@ -48,10 +48,13 @@ class Trainer:
                 self.config = config
                 print('TRAINING CONTINUE!')
             except:
+                self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
                 print("TRAIN FROM BEGINNING!")
         else:    
             self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
             print("TRAIN FROM BEGINNING!")
+
+        self.model_path = MODEL_PATH
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
         self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
@@ -68,17 +71,17 @@ class Trainer:
         
     def train(self):
         self.model.train()
-        for e in range(self.config['num_epochs']):
+        for e in range(1,self.config['num_epochs']+1):
             idx = 0
             for src,target_input, target_output, target_padding in self.dataloader:
                 start_time     = time.perf_counter()
-                logits         = self.model(src,target_input,target_padding) # (B,L,V)
+                logits         = self.model(src,target_input) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
                 logits         = logits[target_padding!=0]
                 target_output  = target_output[target_padding!=0]
                 loss           = self.criterion(logits,target_output)
-                self.optimizer.zero_grad(set_to_none=True)
+                self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=self.config["max_grad_norm"])
                 self.optimizer.step()
@@ -89,9 +92,24 @@ class Trainer:
                     idx+=1
                     self.stat.update_loss(loss.detach().item())
                     self.stat.update_acc(acc,torch.sum(target_padding).item())
-                    self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time)
-            
+                    if self.config['print_type'] == 'per_batch':
+                        self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
+                    else:
+                        self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=False)
+            if self.config['print_type'] == 'per_epoch':
+                self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
+            if e % self.config['save_per_epochs']==0:
+                self._save_checkpoint(e)
             self.stat.reset()
                 
-
+    def _save_checkpoint(self,name):
+        save_dict = {
+            'state_dict':self.model.state_dict(),
+            'config':self.config,
+            'vocab_size':self.vocabulary.vocab_size,
+            'letter_to_idx': self.vocabulary.letter_to_idx,
+            'idx_to_letter': self.vocabulary.idx_to_letter
+        }
+        file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
+        torch.save(save_dict, file_path)
 

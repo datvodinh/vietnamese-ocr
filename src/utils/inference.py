@@ -1,4 +1,4 @@
-from src.model_v2.model import OCRTransformerModel
+from src.model.model import OCRTransformerModel
 from src.utils.transform import Transform
 import torch
 import torch.nn.functional as F
