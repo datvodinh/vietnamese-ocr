@@ -33,33 +33,31 @@ class Trainer:
                                      device      = config['device'],
                                      transform   = Transform(),
                                      target_dict = self.vocabulary.target_dict)
-        
         self.dataloader = DataLoader(dataset     = self.dataset,
                                      batch_size  = config['batch_size'],
                                      shuffle     = True,
                                      num_workers = config['dataloader']['num_workers'])
-        
-        self.len_loader = len(self.dataloader)
-        if MODEL_PATH is not None:
-            try:
-                data_dict = torch.load(MODEL_PATH)
-                self.model = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'])
-                self.model.load_state_dict(data_dict['state_dict'])
-                self.config = config
-                print('TRAINING CONTINUE!')
-            except:
-                self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
-                print("TRAIN FROM BEGINNING!")
-        else:    
-            self.model      = OCRTransformerModel(config,self.vocabulary.vocab_size)
-            print("TRAIN FROM BEGINNING!")
-
-        self.model_path = MODEL_PATH
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
-        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
+        self.len_loader = len(self.dataloader)
         self.pro_bar    = CustomProgressBar(self.config['num_epochs'],self.len_loader)
-
+        if MODEL_PATH is not None:
+            try:
+                data_dict      = torch.load(MODEL_PATH)
+                self.model     = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'])
+                self.model.load_state_dict(data_dict['state_dict'])
+                load_scheduler = True
+                self.config    = config
+                print('TRAINING CONTINUE!')
+            except:
+                self.model     = OCRTransformerModel(config,self.vocabulary.vocab_size)
+                load_scheduler = False
+                print("TRAIN FROM BEGINNING!")
+        else:    
+            self.model         = OCRTransformerModel(config,self.vocabulary.vocab_size)
+            load_scheduler     = False
+            print("TRAIN FROM BEGINNING!")
+        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
         self.scheduler  = CosineAnnealingWarmupRestarts(optimizer         = self.optimizer,
                                                         first_cycle_steps = config['scheduler']['first_cycle_steps'],
                                                         cycle_mult        = config['scheduler']['cycle_mult'],
@@ -67,7 +65,9 @@ class Trainer:
                                                         min_lr            = config['scheduler']['min_lr'],
                                                         warmup_steps      = config['scheduler']['warmup_steps'],
                                                         gamma             = config['scheduler']['gamma'])
-        # self.scheduler  = torch.optim.lr_scheduler.CosineAnnealingLR()
+        if load_scheduler:
+            self.scheduler.load_state_dict(data_dict['scheduler'])
+        self.model_path = MODEL_PATH
         
     def train(self):
         self.model.train()
@@ -98,7 +98,7 @@ class Trainer:
                         self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=False)
             if self.config['print_type'] == 'per_epoch':
                 self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
-            if e % self.config['save_per_epochs']==0:
+            if e % self.config['save_per_epochs']==0 or e==1:
                 self._save_checkpoint(e)
             self.stat.reset()
                 
@@ -108,7 +108,8 @@ class Trainer:
             'config':self.config,
             'vocab_size':self.vocabulary.vocab_size,
             'letter_to_idx': self.vocabulary.letter_to_idx,
-            'idx_to_letter': self.vocabulary.idx_to_letter
+            'idx_to_letter': self.vocabulary.idx_to_letter,
+            'scheduler': self.scheduler.state_dict()
         }
         try:
             file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
