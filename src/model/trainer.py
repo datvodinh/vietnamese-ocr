@@ -114,6 +114,6 @@ class Trainer:
             file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
             torch.save(save_dict, file_path)
         except:
-            file_path = f"model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
+            file_path = f"{self.model_path}"
             torch.save(save_dict, file_path)
 
