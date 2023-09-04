@@ -110,6 +110,9 @@ class Trainer:
             'letter_to_idx': self.vocabulary.letter_to_idx,
             'idx_to_letter': self.vocabulary.idx_to_letter
         }
-        file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
+        try:
+            file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
+        except:
+            file_path = f"{self.model_path}"
         torch.save(save_dict, file_path)
 
