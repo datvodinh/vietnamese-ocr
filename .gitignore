@@ -159,17 +159,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-a.ipynb
-.img/
-*.jpg
-test2.ipynb
-test1.ipynb
-preprocess
-*.pth
-*.pt
-test_backbone.ipynb
-test_small.ipynb
-preprocessing.ipynb
-preprocess2
 data
-test_small2.ipynb
+origin_5000
+/test/origin_5000

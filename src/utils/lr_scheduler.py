@@ -4,8 +4,6 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 class CosineAnnealingWarmupRestarts(_LRScheduler):
     """
-        src: https://github.com/katsura-jp/pytorch-cosine-annealing-with-warmup/blob/master/cosine_annealing_warmup/scheduler.py
-
         optimizer (Optimizer): Wrapped optimizer.
         first_cycle_steps (int): First cycle step size.
         cycle_mult(float): Cycle steps magnification. Default: -1.
