@@ -1,32 +1,32 @@
-import albumentations as alb
+import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
 class Transform:
     def __init__(self,training=True) -> None:
         if training:
-            self.transform = alb.Compose([
-                        alb.Resize(64,128),
-                        alb.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=15,
+            self.transform = A.Compose([
+                        A.Resize(64,128),
+                        A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=15,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
-                        alb.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
+                        A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
                             value=[255, 255, 255], p=.5),
-                        alb.GaussNoise(10, p=.2),
-                        alb.RandomBrightnessContrast(.05, (-.2, 0), True, p=0.2),
-                        alb.ImageCompression(95, p=.3),
-                        alb.ToGray(always_apply=True),
-                        alb.Normalize(),
-                        # alb.Sharpen()
+                        A.GaussNoise(10, p=.2),
+                        A.RandomBrightnessContrast(.05, (-.2, 0), True, p=0.2),
+                        A.ImageCompression(95, p=.3),
+                        A.ToGray(always_apply=True),
+                        A.Normalize(),
+                        # A.Sharpen()
                         ToTensorV2(),
                     ]
                 )
         else:
-            self.transform = alb.Compose(
+            self.transform = A.Compose(
                 [
-                    alb.Resize(64, 128),
-                    alb.ToGray(always_apply=True),
-                    alb.ImageCompression(95, p=.3),
-                    alb.Normalize(),
-                    # alb.Sharpen(),
+                    A.Resize(64, 128),
+                    A.ToGray(always_apply=True),
+                    A.ImageCompression(95, p=.3),
+                    A.Normalize(),
+                    # A.Sharpen(),
                     ToTensorV2(),
                 ]
             )
