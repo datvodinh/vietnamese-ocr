@@ -2,10 +2,10 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
 class Transform:
-    def __init__(self,training=True) -> None:
+    def __init__(self,img_size=(64,128),training=True) -> None:
         if training:
             self.transform = A.Compose([
-                        A.Resize(64,128),
+                        A.Resize(img_size[0],img_size[1]),
                         A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=15,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
@@ -22,7 +22,7 @@ class Transform:
         else:
             self.transform = A.Compose(
                 [
-                    A.Resize(64, 128),
+                    A.Resize(img_size[0], img_size[1]),
                     A.ToGray(always_apply=True),
                     A.ImageCompression(95, p=.3),
                     A.Normalize(),

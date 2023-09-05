@@ -3,13 +3,15 @@ from src.utils.generator import OCRDataset
 from src.utils.transform import Transform
 from src.model.model import OCRTransformerModel
 from src.utils.statistic import Statistic
-from src.utils.progress_bar import CustomProgressBar
+from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import time
 import os
+import warnings
+warnings.filterwarnings("ignore")
 
 def seed_everything(seed=42):
   os.environ['PYTHONHASHSEED'] = str(seed)
@@ -40,7 +42,7 @@ class Trainer:
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
         self.len_loader = len(self.dataloader)
-        self.pro_bar    = CustomProgressBar(self.config['num_epochs'],self.len_loader)
+        self.pro_bar    = TrainProgressBar(self.config['num_epochs'],self.len_loader)
         if MODEL_PATH is not None:
             try:
                 data_dict      = torch.load(MODEL_PATH)

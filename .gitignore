@@ -162,3 +162,8 @@ cython_debug/
 data
 origin_5000
 /test/origin_5000
+model_weights
+a.ipynb
+public_test_data
+prediction.txt
+prediction.zip

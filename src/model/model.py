@@ -123,10 +123,6 @@ class Encoder(nn.Module):
 
         elif self.encoder_type in ['swin_transformer','swin_transformer_v2']:
             out = self.encoder(x) # (B, H/32 * W/32, C)
-        elif self.encoder_type == 'vision_transformer':
-            out_vit = self.vit(x)
-            x_embed = self.position_embed(out_vit)
-            out = self.encoder(x_embed)
 
         return out
     
@@ -192,21 +188,49 @@ class OCRTransformerModel(nn.Module):
     def forward(self,src,target,tar_pad=None,mode='train'):
         if mode == 'train':
             encoder_out = self.encoder(src) # (B,H/32 * W/32,C)
-            out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target),padding=(tar_pad==0) if tar_pad is not None else None)
-            out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
-            out = self.fc(out_transformer)
-            return out
+            logits = self._forward_decoder(target   = target,
+                                        encoder_out = encoder_out,
+                                        target_mask = self.target_mask(target),
+                                        padding     = (tar_pad==0) if tar_pad is not None else None,
+                                        mode        = mode)
+            return logits
         elif mode == 'predict':
+            """
+            src and target both in form batch dictionary: {"file_name1": img1,...}
+            """
+            dict_target = {}
+            c = 0
             with torch.no_grad():
-                encoder_out = self.encoder(src)
-                c = 0
-                while target[0][-1] != 1 and c < 30: # <eos>
-                    out_transformer = self.decoder(target,encoder_out,target_mask=self.target_mask(target))
-                    out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
-                    logits = self.fc(out_transformer)
-                    logits = logits[-1,:]
-                    target_next = torch.argmax(logits).unsqueeze(0).unsqueeze(0)
-                    target = torch.cat((target, target_next), dim=1).to(self.device)
+                src_in = torch.stack(list(src.values()))
+                encoder_out = self.encoder(src_in)
+                dict_enc_out = {s_key:e_out for s_key,e_out in zip(list(src.keys()),encoder_out)}
+                while c<32:
+                    lst_key = list(target.keys())
+                    for k in lst_key:
+                        # print(dict_enc_out[k])
+                        if target[k][-1] == 1:
+                            dict_target[k] = target.pop(k)
+                            dict_enc_out.pop(k)
+                    if len(dict_enc_out)==0:
+                        break
+
+                    tensor_encoder_out = torch.stack(list(dict_enc_out.values()))
+                    tensor_target = torch.stack(list(target.values()))
+                    logits = self._forward_decoder(target      = tensor_target,
+                                                   encoder_out = tensor_encoder_out,
+                                                   target_mask = self.target_mask(tensor_target),
+                                                   mode        = mode) # (B,L,V)
+                    logits = logits[:,-1,:] 
+                    target_next = torch.argmax(logits,dim=-1,keepdim=True)
+                    target = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
                     c+=1
-            return target[0]
+            return dict_target
+        
+    def _forward_decoder(self,target,encoder_out,target_mask=None,padding=None,mode='train'):
+        out_transformer = self.decoder(target,encoder_out,target_mask=target_mask,padding=padding)
+        if (mode=="train"):
+            out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
+        logits = self.fc(out_transformer)
+        return logits
+
     
