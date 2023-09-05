@@ -54,22 +54,25 @@ class Inference:
         if save:
             data = []
             for k in dict_target_decode.keys():
-                data.append(f"{k} {dict_target_decode[k]}")
+                if len(dict_target_decode[k]) == 0:
+                    data.append(f"{k} a")
+                else:
+                    data.append(f"{k} {dict_target_decode[k]}")
             if save_dir is not None:
                 file_name = save_dir
             else:
                 file_name = "prediction.txt"
-            with open(file_name, "w") as file:
-                for word in data:
-                    file.write(word + "\n")
+            with open(file_name, "w") as f:
+                for d in data:
+                    f.write(d + "\n")
             print(f"Prediction save to: {file_name}")
         
         return dict_target_decode  
 
     def _decode_batch(self, dict_target):
-        lst_decode = {}
+        dict_decode = {}
         for k in dict_target.keys():
             chars = [self.idx_to_letter[int(i)] for i in dict_target[k]]
             decoded_chars = [c for c in chars if c not in ['<sos>', '<eos>','<pad>']]
-            lst_decode[k] = ''.join(decoded_chars)
-        return lst_decode
+            dict_decode[k] = ''.join(decoded_chars)
+        return dict_decode

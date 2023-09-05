@@ -167,3 +167,6 @@ a.ipynb
 public_test_data
 prediction.txt
 prediction.zip
+test/
+/test
+test

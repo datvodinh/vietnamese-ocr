@@ -33,7 +33,7 @@ class Trainer:
                                      device      = config['device'])
         self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
                                      device      = config['device'],
-                                     transform   = Transform(),
+                                     transform   = Transform(img_size = config['encoder']['swin']['img_size']),
                                      target_dict = self.vocabulary.target_dict)
         self.dataloader = DataLoader(dataset     = self.dataset,
                                      batch_size  = config['batch_size'],
