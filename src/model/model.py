@@ -29,17 +29,15 @@ class LearnableEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout).to(device)
 
         self.pos_embed = nn.Embedding(max_len, d_model).to(device)
-        self.layernorm = LayerNorm(d_model).to(device)
 
     def forward(self, x):
         seq_len = x.size(0)
         pos = torch.arange(seq_len, dtype=torch.long, device=x.device)
         pos = pos.unsqueeze(-1).expand(x.size()[:2])
         x = x + self.pos_embed(pos)
-        return self.dropout(self.layernorm(x))
-
+        return self.dropout(x)
+    
 class LayerNorm(nn.Module):
-    "A layernorm module in the TF style (epsilon inside the square root)."
     def __init__(self, d_model, variance_epsilon=1e-12):
         super().__init__()
         self.gamma = nn.Parameter(torch.ones(d_model))
@@ -107,17 +105,7 @@ class Encoder(nn.Module):
                                            num_heads   = config_enc['swin']['num_heads']).to(device)
 
     def forward(self,x):
-        '''
-        Perform a forward pass through the encoder.
-        
-        Args:
-            x (torch.Tensor): Input tensor to the encoder.
-            mask (torch.Tensor, optional): Mask for the input sequence.
-            padding (torch.Tensor, optional): Padding mask for the input sequence.
-        
-        Returns:
-            out (torch.Tensor): Output tensor from the encoder.
-        '''
+
         if self.encoder_type in ['resnet18','resnet50','vgg']:
             out_cnn = self.cnn(x) # (B,C,H/32,W/32)
             out_cnn = self.cnn_conv(out_cnn).flatten(2)
@@ -151,23 +139,9 @@ class Decoder(nn.Module):
         self.d_model = config_trans['embed_size']
 
     def forward(self,x,encoder_out,target_mask=None,padding=None):
-        '''
-        Perform a forward pass through the decoder.
-        
-        Args:
-            x (torch.Tensor): Input tensor to the decoder.
-            encoder_out (torch.Tensor): Output tensor from the encoder.
-            src_mask (torch.Tensor, optional): Mask for the source sequence.
-            target_mask (torch.Tensor, optional): Mask for the target sequence.
-            padding (torch.Tensor, optional): Padding mask.
-        
-        Returns:
-            out (torch.Tensor): Output tensor from the decoder.
-        '''
-        x_embed = self.embed(x) * math.sqrt(self.d_model)
-        out = self.position_embed(x_embed)
-        out = self.decoder(out,encoder_out,tgt_mask = target_mask,tgt_key_padding_mask = padding)
-        
+        x_embed = self.embed(x) * math.sqrt(self.d_model) # (B,L,E)
+        out = self.position_embed(x_embed) # (B,L,E)
+        out = self.decoder(out,encoder_out,tgt_mask = target_mask,tgt_key_padding_mask = padding) # (B,L,E)
         return out
     
 class OCRTransformerModel(nn.Module):
@@ -184,7 +158,7 @@ class OCRTransformerModel(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
-    def target_mask(self,target):
+    def _target_mask(self,target):
         mask = (torch.triu(torch.ones(target.shape[1], target.shape[1])) == 0).transpose(0, 1)
         return mask.bool().to(self.device)
     
@@ -194,7 +168,7 @@ class OCRTransformerModel(nn.Module):
             encoder_out = self.encoder(src) # (B,H/32 * W/32,C)
             logits = self._forward_decoder(target   = target,
                                         encoder_out = encoder_out,
-                                        target_mask = self.target_mask(target),
+                                        target_mask = self._target_mask(target),
                                         padding     = (tar_pad==0) if tar_pad is not None else None,
                                         mode        = mode)
             return logits
@@ -202,39 +176,42 @@ class OCRTransformerModel(nn.Module):
             """
             src and target both in form batch dictionary: {"file_name1": img1,...}
             """
-            dict_target = {}
-            c = 0
-            with torch.no_grad():
-                src_in = torch.stack(list(src.values()))
-                encoder_out = self.encoder(src_in)
-                dict_enc_out = {s_key:e_out for s_key,e_out in zip(list(src.keys()),encoder_out)}
-                while c<32:
-                    lst_key = list(target.keys())
-                    for k in lst_key:
-                        # print(dict_enc_out[k])
-                        if target[k][-1] == 1:
-                            dict_target[k] = target.pop(k)
-                            dict_enc_out.pop(k)
-                    if len(dict_enc_out)==0:
-                        break
-
-                    tensor_encoder_out = torch.stack(list(dict_enc_out.values()))
-                    tensor_target = torch.stack(list(target.values()))
-                    logits = self._forward_decoder(target      = tensor_target,
-                                                   encoder_out = tensor_encoder_out,
-                                                   target_mask = self.target_mask(tensor_target),
-                                                   mode        = mode) # (B,L,V)
-                    logits = logits[:,-1,:] 
-                    target_next = torch.argmax(logits,dim=-1,keepdim=True)
-                    target = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
-                    c+=1
+            dict_target = self._autoregressive_forward(src,target)
             return dict_target
         
     def _forward_decoder(self,target,encoder_out,target_mask=None,padding=None,mode='train'):
-        out_transformer = self.decoder(target,encoder_out,target_mask=target_mask,padding=padding)
+        out_transformer = self.decoder(target,encoder_out,target_mask=target_mask,padding=padding) # (B,L,E)
         if (mode=="train"):
             out_transformer = out_transformer.reshape(out_transformer.shape[0] * out_transformer.shape[1],out_transformer.shape[2])
-        logits = self.fc(out_transformer)
+        logits = self.fc(out_transformer) # (B*L,V) or (B,L,V)
         return logits
 
+    def _autoregressive_forward(self,src,target):
+        dict_target = {}
+        c = 0
+        with torch.no_grad():
+            src_in = torch.stack(list(src.values()))
+            encoder_out = self.encoder(src_in)
+            dict_enc_out = {s_key:e_out for s_key,e_out in zip(list(src.keys()),encoder_out)}
+            dict_target = self._autoregressive_forward()
+            while c<32:
+                lst_key = list(target.keys())
+                for k in lst_key:
+                    if target[k][-1] == 1:
+                        dict_target[k] = target.pop(k)
+                        dict_enc_out.pop(k)
+                if len(dict_enc_out)==0:
+                    break
+
+                tensor_encoder_out = torch.stack(list(dict_enc_out.values()))
+                tensor_target = torch.stack(list(target.values()))
+                logits = self._forward_decoder(target   = tensor_target,
+                                            encoder_out = tensor_encoder_out,
+                                            target_mask = self._target_mask(tensor_target),
+                                            mode        = "predict") # (B,L,V)
+                logits = logits[:,-1,:] 
+                target_next = torch.argmax(logits,dim=-1,keepdim=True)
+                target = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
+                c+=1
+        return dict_target
     

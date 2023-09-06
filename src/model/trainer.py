@@ -104,7 +104,7 @@ class Trainer:
                 self._save_checkpoint(e)
             self.stat.reset()
                 
-    def _save_checkpoint(self,name):
+    def _save_checkpoint(self):
         save_dict = {
             'state_dict':self.model.state_dict(),
             'config':self.config,
