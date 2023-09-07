@@ -77,7 +77,10 @@ class Trainer:
             idx = 0
             for src,target_input, target_output, target_padding in self.dataloader:
                 start_time     = time.perf_counter()
-                logits         = self.model(src,target_input) # (B,L,V)
+                if self.config['padding']:
+                    logits     = self.model(src,target_input, target_padding) # (B,L,V)
+                else:
+                    logits     = self.model(src,target_input) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
                 logits         = logits[target_padding!=0]
@@ -101,7 +104,7 @@ class Trainer:
             if self.config['print_type'] == 'per_epoch':
                 self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
             if e % self.config['save_per_epochs']==0 or e==1:
-                self._save_checkpoint(e)
+                self._save_checkpoint()
             self.stat.reset()
                 
     def _save_checkpoint(self):

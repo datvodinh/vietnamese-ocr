@@ -18,7 +18,7 @@ class Inference:
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
-        self.transform = Transform(training=False)
+        self.transform = Transform(img_size=data_dict['config']['encoder']['swin']['img_size'],training=False)
         
         print(data_dict['config'])
 

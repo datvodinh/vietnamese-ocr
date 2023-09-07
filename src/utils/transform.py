@@ -15,7 +15,6 @@ class Transform:
                         A.ImageCompression(95, p=.3),
                         A.ToGray(always_apply=True),
                         A.Normalize(),
-                        # A.Sharpen()
                         ToTensorV2(),
                     ]
                 )
@@ -24,9 +23,7 @@ class Transform:
                 [
                     A.Resize(img_size[0], img_size[1]),
                     A.ToGray(always_apply=True),
-                    A.ImageCompression(95, p=.3),
                     A.Normalize(),
-                    # A.Sharpen(),
                     ToTensorV2(),
                 ]
             )

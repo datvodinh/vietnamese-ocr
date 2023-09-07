@@ -103,7 +103,15 @@ class Encoder(nn.Module):
                                            drop_rate   = config_enc['swin']['dropout'],
                                            depths      = config_enc['swin']['depths'],
                                            num_heads   = config_enc['swin']['num_heads']).to(device)
+            
+            embed_dim_swin = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
+            embed_dim_trans = config_trans['embed_size']
 
+            if embed_dim_swin > embed_dim_trans:
+                self.swin_conv = True
+                self.out_conv = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
+            else:
+                self.swin_conv = False
     def forward(self,x):
 
         if self.encoder_type in ['resnet18','resnet50','vgg']:
@@ -115,6 +123,8 @@ class Encoder(nn.Module):
 
         elif self.encoder_type in ['swin_transformer','swin_transformer_v2']:
             out = self.encoder(x) # (B, H/32 * W/32, C)
+            if self.swin_conv:
+                out = self.out_conv(out.permute(0,2,1)).permute(0,2,1)
 
         return out
     
@@ -193,7 +203,6 @@ class OCRTransformerModel(nn.Module):
             src_in = torch.stack(list(src.values()))
             encoder_out = self.encoder(src_in)
             dict_enc_out = {s_key:e_out for s_key,e_out in zip(list(src.keys()),encoder_out)}
-            dict_target = self._autoregressive_forward()
             while c<32:
                 lst_key = list(target.keys())
                 for k in lst_key:
