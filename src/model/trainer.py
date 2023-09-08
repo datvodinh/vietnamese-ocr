@@ -45,7 +45,7 @@ class Trainer:
                                        transform = Transform(training=True),
                                        device=config['device'])
         self.stat       = Statistic()
-        self.criterion  = nn.CrossEntropyLoss()
+        self.criterion  = nn.CrossEntropyLoss(label_smoothing=config['label_smoothing'])
         self.len_loader = len(self.dataloader)
         self.pro_bar    = TrainProgressBar(self.config['num_epochs'],self.len_loader)
         if MODEL_PATH is not None:
