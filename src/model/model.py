@@ -6,6 +6,7 @@ from src.backbone.resnet import ResNet18, ResNet50
 from src.backbone.vgg import VGG19
 from src.backbone.swin_transformer import SwinTransformer
 from src.backbone.swin_transformer_v2 import SwinTransformerV2
+from src.backbone.swin_encoder import SwinTransformerBackbone, SwinTransformerBackbone_v2
 
 class PositionalEncoding(nn.Module):
     def __init__(self,num_hiddens,device,dropout = 0.2,max_len=1000):
@@ -87,23 +88,7 @@ class Encoder(nn.Module):
             self.cnn = VGG19().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'swin_transformer':
-            self.encoder = SwinTransformer(img_size    = config_enc['swin']['img_size'],
-                                           embed_dim   = config_enc['swin']['embed_dim'],
-                                           window_size = config_enc['swin']['window_size'],
-                                           in_chans    = config_enc['swin']['in_channels'],
-                                           drop_rate   = config_enc['swin']['dropout'],
-                                           depths      = config_enc['swin']['depths'],
-                                           num_heads   = config_enc['swin']['num_heads']).to(device)
-        
-        elif self.encoder_type == 'swin_transformer_v2':
-            self.encoder = SwinTransformerV2(img_size  = config_enc['swin']['img_size'],
-                                           embed_dim   = config_enc['swin']['embed_dim'],
-                                           window_size = config_enc['swin']['window_size'],
-                                           in_chans    = config_enc['swin']['in_channels'],
-                                           drop_rate   = config_enc['swin']['dropout'],
-                                           depths      = config_enc['swin']['depths'],
-                                           num_heads   = config_enc['swin']['num_heads']).to(device)
-            
+            self.encoder = SwinTransformerBackbone(config_enc['swin']).to(device)
             embed_dim_swin = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
             embed_dim_trans = config_trans['embed_size']
 
@@ -112,19 +97,30 @@ class Encoder(nn.Module):
                 self.out_conv = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
             else:
                 self.swin_conv = False
+        elif self.encoder_type == 'swin_transformer_v2':
+            self.encoder = SwinTransformerBackbone_v2(config_enc['swin']).to(device)
+            embed_dim_swin = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
+            embed_dim_trans = config_trans['embed_size']
+
+            if embed_dim_swin > embed_dim_trans:
+                self.swin_conv = True
+                self.out_conv = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
+            else:
+                self.swin_conv = False
+            
     def forward(self,x):
 
         if self.encoder_type in ['resnet18','resnet50','vgg']:
-            out_cnn = self.cnn(x) # (B,C,H/32,W/32)
+            out_cnn = self.cnn(x) # B C H/32 W/32
             out_cnn = self.cnn_conv(out_cnn).flatten(2)
-            out_cnn = out_cnn.permute(0,2,1) # (B,L,C)
+            out_cnn = out_cnn.permute(0,2,1) # B L C
             x_embed = self.position_embed(out_cnn)
-            out = self.encoder(x_embed) # (B,L,C)
+            out = self.encoder(x_embed) # B L C
 
         elif self.encoder_type in ['swin_transformer','swin_transformer_v2']:
-            out = self.encoder(x) # (B, H/32 * W/32, C)
+            out = self.encoder(x).flatten(2) # B C H/32*W/32
             if self.swin_conv:
-                out = self.out_conv(out.permute(0,2,1)).permute(0,2,1)
+                out = self.out_conv(out).permute(0,2,1) # B H/32*W/32 C_out
 
         return out
     
@@ -179,7 +175,7 @@ class OCRTransformerModel(nn.Module):
             logits = self._forward_decoder(target   = target,
                                         encoder_out = encoder_out,
                                         target_mask = self._target_mask(target),
-                                        padding     = (tar_pad==0) if tar_pad is not None else None,
+                                        padding     = tar_pad,
                                         mode        = mode)
             return logits
         elif mode == 'predict':

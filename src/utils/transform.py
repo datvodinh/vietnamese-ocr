@@ -2,10 +2,9 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
 class Transform:
-    def __init__(self,img_size=(64,128),training=True) -> None:
+    def __init__(self,training=True) -> None:
         if training:
             self.transform = A.Compose([
-                        A.Resize(img_size[0],img_size[1]),
                         A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=15,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
@@ -21,14 +20,14 @@ class Transform:
         else:
             self.transform = A.Compose(
                 [
-                    A.Resize(img_size[0], img_size[1]),
                     A.ToGray(always_apply=True),
                     A.Normalize(),
                     ToTensorV2(),
                 ]
             )
-    def __call__(self,img):
-        return self.transform(image=np.asarray(img))['image']
+    def __call__(self,img,img_size=(32,64)):
+        img = A.Resize(img_size[0],img_size[1])(image=np.asarray(img))['image']
+        return self.transform(image=img)['image']
 # mean_H = 71.9, median_H = 64.
 # mean_W = 131.1, median_W = 118.
         

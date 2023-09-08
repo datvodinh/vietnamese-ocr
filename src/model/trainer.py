@@ -5,6 +5,7 @@ from src.model.model import OCRTransformerModel
 from src.utils.statistic import Statistic
 from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
+from src.utils.custom_loader import CustomLoader
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
@@ -31,14 +32,18 @@ class Trainer:
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
                                      device      = config['device'])
-        self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
-                                     device      = config['device'],
-                                     transform   = Transform(img_size = config['encoder']['swin']['img_size']),
-                                     target_dict = self.vocabulary.target_dict)
-        self.dataloader = DataLoader(dataset     = self.dataset,
-                                     batch_size  = config['batch_size'],
-                                     shuffle     = True,
-                                     num_workers = config['dataloader']['num_workers'])
+        # self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
+        #                              device      = config['device'],
+        #                              transform   = Transform(img_size = config['encoder']['swin']['img_size']),
+        #                              target_dict = self.vocabulary.target_dict)
+        # self.dataloader = DataLoader(dataset     = self.dataset,
+        #                              batch_size  = config['batch_size'],
+        #                              shuffle     = True,
+        #                              num_workers = config['dataloader']['num_workers'])
+        self.dataloader = CustomLoader(root_dir = IMAGE_PATH,
+                                       vocab=self.vocabulary,
+                                       transform = Transform(training=True),
+                                       device=config['device'])
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss()
         self.len_loader = len(self.dataloader)
@@ -83,8 +88,8 @@ class Trainer:
                     logits     = self.model(src,target_input) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
-                logits         = logits[target_padding!=0]
-                target_output  = target_output[target_padding!=0]
+                logits         = logits[target_padding==False]
+                target_output  = target_output[target_padding==False]
                 loss           = self.criterion(logits,target_output)
                 self.optimizer.zero_grad()
                 loss.backward()
