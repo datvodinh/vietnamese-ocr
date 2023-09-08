@@ -170,3 +170,7 @@ prediction.zip
 test/
 /test
 test
+preprocessing.ipynb
+test_train.ipynb
+test_5000
+test_5000.zip

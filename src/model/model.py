@@ -121,6 +121,8 @@ class Encoder(nn.Module):
             out = self.encoder(x).flatten(2) # B C H/32*W/32
             if self.swin_conv:
                 out = self.out_conv(out).permute(0,2,1) # B H/32*W/32 C_out
+            else:
+                out = out.permute(0,2,1)
 
         return out
     

@@ -4,7 +4,7 @@ from torchvision.models.swin_transformer import SwinTransformer,SwinTransformerB
 class SwinTransformerBackbone(nn.Module):
     def __init__(self,config_swin):
         super().__init__()
-        self.model = SwinTransformer(patch_size=config_swin['patch_size'],
+        self.model = SwinTransformer(patch_size=[4,4],
                                     embed_dim=config_swin['embed_dim'],
                                     depths=config_swin['depths'],
                                     num_heads=config_swin['num_heads'],
@@ -21,7 +21,7 @@ class SwinTransformerBackbone(nn.Module):
 class SwinTransformerBackbone_v2(nn.Module):
     def __init__(self,config_swin):
         super().__init__()
-        self.model = SwinTransformer(patch_size=config_swin['patch_size'],
+        self.model = SwinTransformer(patch_size=[4,4],
                                     embed_dim=config_swin['embed_dim'],
                                     depths=config_swin['depths'],
                                     num_heads=config_swin['num_heads'],

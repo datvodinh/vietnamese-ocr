@@ -5,7 +5,7 @@ from src.model.model import OCRTransformerModel
 from src.utils.statistic import Statistic
 from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
-from src.utils.custom_loader import CustomLoader
+from src.utils.custom_loader import ClusterImageLoader, ClusterTargetLoader
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
@@ -40,10 +40,19 @@ class Trainer:
         #                              batch_size  = config['batch_size'],
         #                              shuffle     = True,
         #                              num_workers = config['dataloader']['num_workers'])
-        self.dataloader = CustomLoader(root_dir = IMAGE_PATH,
-                                       vocab=self.vocabulary,
-                                       transform = Transform(training=True),
-                                       device=config['device'])
+        if config['dataloader']['type']=='cluster_image':
+            self.dataloader = ClusterImageLoader(root_dir = IMAGE_PATH,
+                                                vocab     = self.vocabulary,
+                                                batch_size = config['batch_size'],
+                                                transform = Transform(training=True),
+                                                device    = config['device'])
+        elif config['dataloader']['type']=='cluster_target':
+            self.dataloader = ClusterTargetLoader(root_dir = IMAGE_PATH,
+                                                vocab      = self.vocabulary,
+                                                batch_size = config['batch_size'],
+                                                img_size   = config['img_size'],
+                                                transform  = Transform(training=True),
+                                                device     = config['device'])
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss(label_smoothing=config['label_smoothing'])
         self.len_loader = len(self.dataloader)
@@ -101,7 +110,7 @@ class Trainer:
                     acc = torch.mean((torch.argmax(logits,dim=1)==target_output).float())
                     idx+=1
                     self.stat.update_loss(loss.detach().item())
-                    self.stat.update_acc(acc,torch.sum(target_padding).item())
+                    self.stat.update_acc(acc,torch.sum(target_padding==False).item())
                     if self.config['print_type'] == 'per_batch':
                         self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
                     else:
