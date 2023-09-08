@@ -7,7 +7,6 @@ class Transform:
         self.to_tensor = ToTensorV2()
         if training:
             self.transform = A.Compose([
-                        A.PadIfNeeded(min_height=64,min_width=256,position=A.PadIfNeeded.PositionType.RANDOM,border_mode=cv2.BORDER_CONSTANT,value=(255,255,255)),
                         A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=10,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
@@ -24,15 +23,13 @@ class Transform:
         else:
             self.transform = A.Compose(
                 [
-                    A.PadIfNeeded(min_height=64,min_width=256,position=A.PadIfNeeded.PositionType.TOP_LEFT,border_mode=cv2.BORDER_CONSTANT,value=(255,255,255)),
                     A.ToGray(always_apply=True),
                     # ToTensorV2(),
                 ]
             )
     def __call__(self,img,img_size=(32,64)):
-        img = A.Resize(img_size[0],int(img_size[0]*img.size[0]/img.size[1]))(image=np.asarray(img))['image'] # resize height to 64, fixed scale
+        img = A.Resize(img_size[0],img_size[1])(image=np.asarray(img))['image'] # resize height to 64, fixed scale
         img = self.transform(image=np.asarray(img))['image']
-        img = A.Resize(img_size[0],img_size[1])(image=np.asarray(img))['image']
         img = self.to_tensor(image=img)['image'] / 255
         return img
 # mean_H = 71.9, median_H = 64.
