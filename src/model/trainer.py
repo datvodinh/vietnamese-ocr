@@ -5,7 +5,7 @@ from src.model.model import OCRTransformerModel
 from src.utils.statistic import Statistic
 from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
-from src.utils.custom_loader import ClusterImageLoader, ClusterTargetLoader
+from src.utils.custom_loader import ClusterImageLoader, ClusterTargetLoader, NormalLoader
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
@@ -53,6 +53,14 @@ class Trainer:
                                                 img_size   = config['img_size'],
                                                 transform  = Transform(training=True),
                                                 device     = config['device'])
+        elif config['dataloader']['type']=='normal':
+            self.dataloader = NormalLoader(root_dir = IMAGE_PATH,
+                                        vocab       = self.vocabulary,
+                                        batch_size  = config['batch_size'],
+                                        img_size    = config['img_size'],
+                                        transform   = Transform(training=True),
+                                        device      = config['device'])
+            
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss(label_smoothing=config['label_smoothing'])
         self.len_loader = len(self.dataloader)

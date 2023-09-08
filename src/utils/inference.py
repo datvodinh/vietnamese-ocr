@@ -18,9 +18,9 @@ class Inference:
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
-        self.transform = Transform(img_size=data_dict['config']['encoder']['swin']['img_size'],training=False)
-        
-        print(data_dict['config'])
+        self.transform = Transform(training=False)
+        self.config = data_dict['config']
+        print(self.config)
 
     def predict(self,root_dir,list_dir,batch_size=32,save=False,save_dir=None):
         len_list_dir = len(list_dir)
@@ -41,7 +41,7 @@ class Inference:
             dict_batch_target = {}
             for d in batch_dir:
                 img = Image.open(os.path.join(root_dir,d))
-                new_img = self.transform(img)
+                new_img = self.transform(img,img_size=self.config['img_size'])
                 file_name = d
                 dict_batch_img[file_name] = new_img.to(device)
                 dict_batch_target[file_name] = torch.tensor([0]).long().to(device)
