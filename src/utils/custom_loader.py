@@ -33,8 +33,7 @@ class NormalLoader:
         for i in range(0,len(self.image_dir),self.batch_size):
             start,end = i,i+self.batch_size
             batch_dir = self.image_dir[start:end]
-            src = torch.stack([self.transform(img=Image.open(os.path.join(self.root_dir,f)),
-                                                img_size=self.img_size) 
+            src = torch.stack([self.transform(img=Image.open(os.path.join(self.root_dir,f))) 
                                                 for f in batch_dir]).to(self.device)
             target = [self.target_dict[f] for f in batch_dir]
             target_in,target_out,padding = self._padding(target)

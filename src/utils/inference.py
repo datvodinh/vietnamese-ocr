@@ -19,7 +19,10 @@ class Inference:
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
         self.config = data_dict['config']
-        self.transform = Transform(img_size=self.config['img_size'],padding=self.config['padding'],training=True)
+        self.transform = Transform(img_size=self.config['img_size'],
+                                   padding=self.config['padding'],
+                                   enhance=self.config['enhancing'],
+                                   training=False)
         
         print(self.config)
 
@@ -42,7 +45,7 @@ class Inference:
             dict_batch_target = {}
             for d in batch_dir:
                 img = Image.open(os.path.join(root_dir,d))
-                new_img = self.transform(img,img_size=self.config['img_size'])
+                new_img = self.transform(img)
                 file_name = d
                 dict_batch_img[file_name] = new_img.to(device)
                 dict_batch_target[file_name] = torch.tensor([0]).long().to(device)

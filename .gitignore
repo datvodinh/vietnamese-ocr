@@ -165,8 +165,8 @@ origin_5000
 model_weights
 a.ipynb
 public_test_data
-prediction.txt
-prediction.zip
+*.txt
+*.zip
 test/
 /test
 test
