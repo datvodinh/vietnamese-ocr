@@ -32,33 +32,26 @@ class Trainer:
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
                                      device      = config['device'])
-        # self.dataset    = OCRDataset(root_dir    = IMAGE_PATH,
-        #                              device      = config['device'],
-        #                              transform   = Transform(img_size = config['encoder']['swin']['img_size']),
-        #                              target_dict = self.vocabulary.target_dict)
-        # self.dataloader = DataLoader(dataset     = self.dataset,
-        #                              batch_size  = config['batch_size'],
-        #                              shuffle     = True,
-        #                              num_workers = config['dataloader']['num_workers'])
+        self.transform  = Transform(img_size=config['img_size'],padding=config['padding'],training=True)
         if config['dataloader']['type']=='cluster_image':
             self.dataloader = ClusterImageLoader(root_dir = IMAGE_PATH,
                                                 vocab     = self.vocabulary,
                                                 batch_size = config['batch_size'],
-                                                transform = Transform(training=True),
+                                                transform = self.transform,
                                                 device    = config['device'])
         elif config['dataloader']['type']=='cluster_target':
             self.dataloader = ClusterTargetLoader(root_dir = IMAGE_PATH,
                                                 vocab      = self.vocabulary,
                                                 batch_size = config['batch_size'],
                                                 img_size   = config['img_size'],
-                                                transform  = Transform(training=True),
+                                                transform  = self.transform,
                                                 device     = config['device'])
         elif config['dataloader']['type']=='normal':
             self.dataloader = NormalLoader(root_dir = IMAGE_PATH,
                                         vocab       = self.vocabulary,
                                         batch_size  = config['batch_size'],
                                         img_size    = config['img_size'],
-                                        transform   = Transform(training=True),
+                                        transform   = self.transform,
                                         device      = config['device'])
             
         self.stat       = Statistic()
@@ -99,10 +92,7 @@ class Trainer:
             idx = 0
             for src,target_input, target_output, target_padding in self.dataloader:
                 start_time     = time.perf_counter()
-                if self.config['padding']:
-                    logits     = self.model(src,target_input, target_padding) # (B,L,V)
-                else:
-                    logits     = self.model(src,target_input) # (B,L,V)
+                logits     = self.model(src,target_input, target_padding) # (B,L,V)
                 target_padding = target_padding.reshape(-1)
                 target_output  = target_output.reshape(-1)
                 logits         = logits[target_padding==False]

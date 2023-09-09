@@ -18,8 +18,9 @@ class Inference:
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
-        self.transform = Transform(training=False)
         self.config = data_dict['config']
+        self.transform = Transform(img_size=self.config['img_size'],padding=self.config['padding'],training=True)
+        
         print(self.config)
 
     def predict(self,root_dir,list_dir,batch_size=32,save=False,save_dir=None):
