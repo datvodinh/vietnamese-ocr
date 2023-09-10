@@ -21,7 +21,7 @@ class Transform:
                                              min_width=img_size[1],
                                              position=A.PadIfNeeded.PositionType.RANDOM,
                                              border_mode=cv2.BORDER_CONSTANT,
-                                             value=(255,255,255),p=0.7)
+                                             value=(255,255,255),p=0.8)
             self.transform = A.Compose([
                         A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.5, 0.), rotate_limit=15,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
@@ -32,7 +32,7 @@ class Transform:
                         A.PixelDropout(p=0.3),
                         A.ImageCompression(95, p=.3),
                         A.ToGray(always_apply=True),
-                        A.Normalize(),
+                        A.Normalize(mean=[0.5,0.5,0.5],std=[1,1,1]),
                         ToTensorV2()
                     ]
                 )
@@ -47,7 +47,7 @@ class Transform:
             self.transform = A.Compose(
                 [
                     A.ToGray(always_apply=True),
-                    A.Normalize(),
+                    A.Normalize(mean=[0.5,0.5,0.5],std=[1,1,1]),
                     ToTensorV2(),
                 ]
             )
