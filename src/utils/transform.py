@@ -3,6 +3,10 @@ from albumentations.pytorch import ToTensorV2
 import numpy as np
 import cv2
 import PIL
+
+'''(array([0.1785674 , 0.17793148, 0.17970584]), mean
+ array([0.27464595, 0.27378836, 0.27584539])) std
+ '''
 class Transform:
     def __init__(self,img_size=(64,192),padding=True,training=True,enhance=True) -> None:
         if enhance:
@@ -11,18 +15,21 @@ class Transform:
         self.padding    = padding
         self.is_enc     = enhance
         self.resize_img = A.Resize(img_size[0],img_size[1])
-        
         if training:
             if padding:
-                self.pad_img = A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],position=A.PadIfNeeded.PositionType.RANDOM,border_mode=cv2.BORDER_CONSTANT,value=(255,255,255))
+                self.pad_img = A.PadIfNeeded(min_height=img_size[0],
+                                             min_width=img_size[1],
+                                             position=A.PadIfNeeded.PositionType.RANDOM,
+                                             border_mode=cv2.BORDER_CONSTANT,
+                                             value=(255,255,255),p=0.7)
             self.transform = A.Compose([
-                        A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.1, 0.1), rotate_limit=5,
+                        A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.5, 0.), rotate_limit=15,
                             border_mode=0, interpolation=3, value=[255, 255, 255], p=0.7),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
                             value=[255, 255, 255], p=.5),
-                        A.GaussNoise(10, p=.2),
-                        A.RandomBrightnessContrast(.05, (-.2, 0), True, p=0.2),
-                        A.PixelDropout(p=0.5),
+                        A.GaussNoise(10, p=.3),
+                        A.RandomBrightnessContrast(.05, (-.2, 0), True, p=0.3),
+                        A.PixelDropout(p=0.3),
                         A.ImageCompression(95, p=.3),
                         A.ToGray(always_apply=True),
                         A.Normalize(),
@@ -32,7 +39,11 @@ class Transform:
             
         else:
             if padding:
-                self.pad_img = A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],position=A.PadIfNeeded.PositionType.CENTER,border_mode=cv2.BORDER_CONSTANT,value=(255,255,255))
+                self.pad_img = A.PadIfNeeded(min_height=img_size[0],
+                                             min_width=img_size[1],
+                                             position=A.PadIfNeeded.PositionType.CENTER,
+                                             border_mode=cv2.BORDER_CONSTANT,
+                                             value=(255,255,255))
             self.transform = A.Compose(
                 [
                     A.ToGray(always_apply=True),

@@ -63,7 +63,9 @@ class Inference:
                 else:
                     data.append(f"{k} {dict_target_decode[k]}")
             if save_dir is not None:
-                file_name = save_dir
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                file_name = f"{save_dir}/prediction.txt"
             else:
                 file_name = "prediction.txt"
             with open(file_name, "w") as f:
