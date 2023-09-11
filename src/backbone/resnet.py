@@ -6,7 +6,6 @@ class ResNet18(nn.Module):
         super().__init__()
         self.model = models.resnet18()
     def forward(self,x):
-        # See note [TorchScript super()]
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
@@ -24,7 +23,6 @@ class ResNet50(nn.Module):
         super().__init__()
         self.model = models.resnet50()
     def forward(self,x):
-        # See note [TorchScript super()]
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
