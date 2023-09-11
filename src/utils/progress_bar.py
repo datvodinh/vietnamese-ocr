@@ -12,8 +12,6 @@ class TrainProgressBar:
         spaces = '-' * (self.bar_length - len(arrow) - 1)
         if printing:
             print(f"\r| Epoch {epoch:>3} / {self.total_epochs}: [{arrow}{spaces}] {progress * 100:7.2f}% | Loss: {loss:.4f} | Acc: {acc*100:7.2f}% | ETA: {est_time * (self.total_batches - step):7.1f}s | ", end='')
-            if step == self.total_batches:
-                print()
 class EvalProgressBar:
     def __init__(self,total_batches, bar_length=20):
         self.total_batches = total_batches

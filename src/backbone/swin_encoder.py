@@ -9,7 +9,7 @@ class SwinTransformerBackbone(nn.Module):
                                     depths=config_swin['depths'],
                                     num_heads=config_swin['num_heads'],
                                     window_size=config_swin['window_size'],
-                                    stochastic_depth_prob=config_swin['dropout'],
+                                    dropout=config_swin['dropout'],
                                     block=SwinTransformerBlock,
                                     downsample_layer=PatchMerging)
 
@@ -26,7 +26,7 @@ class SwinTransformerBackbone_v2(nn.Module):
                                     depths=config_swin['depths'],
                                     num_heads=config_swin['num_heads'],
                                     window_size=config_swin['window_size'],
-                                    stochastic_depth_prob=config_swin['dropout'],
+                                    dropout=config_swin['dropout'],
                                     block=SwinTransformerBlockV2,
                                     downsample_layer=PatchMergingV2)
 

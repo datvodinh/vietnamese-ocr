@@ -3,9 +3,8 @@ import torch.nn as nn
 import math
 
 from src.backbone.resnet import ResNet18, ResNet50
+from src.backbone.custom_resnet import resnet18_v2,resnet50_v2
 from src.backbone.vgg import VGG19
-from src.backbone.swin_transformer import SwinTransformer
-from src.backbone.swin_transformer_v2 import SwinTransformerV2
 from src.backbone.swin_encoder import SwinTransformerBackbone, SwinTransformerBackbone_v2
 
 class PositionalEncoding(nn.Module):
@@ -79,38 +78,44 @@ class Encoder(nn.Module):
         self.dropout = nn.Dropout(config_trans['dropout'])
         self.encoder_type = config_enc['type']
         if self.encoder_type == 'resnet18':
-            self.cnn = ResNet18().to(device)
+            self.cnn      = ResNet18().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'resnet50':
-            self.cnn = ResNet50().to(device)
+            self.cnn      = ResNet50().to(device)
+            self.cnn_conv = nn.Conv2d(2048,config_trans['embed_size'],1).to(device)
+        elif self.encoder_type == 'resnet18_v2':
+            self.cnn      = resnet18_v2().to(device)
+            self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
+        elif self.encoder_type == 'resnet50_v2':
+            self.cnn      = resnet50_v2().to(device)
             self.cnn_conv = nn.Conv2d(2048,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'vgg':
-            self.cnn = VGG19().to(device)
+            self.cnn      = VGG19().to(device)
             self.cnn_conv = nn.Conv2d(512,config_trans['embed_size'],1).to(device)
         elif self.encoder_type == 'swin_transformer':
-            self.encoder = SwinTransformerBackbone(config_enc['swin']).to(device)
-            embed_dim_swin = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
+            self.encoder    = SwinTransformerBackbone(config_enc['swin']).to(device)
+            embed_dim_swin  = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
             embed_dim_trans = config_trans['embed_size']
 
             if embed_dim_swin > embed_dim_trans:
                 self.swin_conv = True
-                self.out_conv = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
+                self.out_conv  = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
             else:
                 self.swin_conv = False
         elif self.encoder_type == 'swin_transformer_v2':
-            self.encoder = SwinTransformerBackbone_v2(config_enc['swin']).to(device)
-            embed_dim_swin = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
+            self.encoder    = SwinTransformerBackbone_v2(config_enc['swin']).to(device)
+            embed_dim_swin  = config_enc['swin']['embed_dim'] * 2 ** (len(config_enc['swin']['depths'])-1)
             embed_dim_trans = config_trans['embed_size']
 
             if embed_dim_swin > embed_dim_trans:
                 self.swin_conv = True
-                self.out_conv = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
+                self.out_conv  = nn.Conv1d(embed_dim_swin,embed_dim_trans,1).to(device)
             else:
                 self.swin_conv = False
             
     def forward(self,x):
 
-        if self.encoder_type in ['resnet18','resnet50','vgg']:
+        if self.encoder_type in ['resnet18','resnet50','vgg','resnet18_v2','resnet50_v2']:
             out_cnn = self.cnn(x) # B C H/32 W/32
             out_cnn = self.cnn_conv(out_cnn).flatten(2)
             out_cnn = out_cnn.permute(0,2,1) # B L C
@@ -148,8 +153,8 @@ class Decoder(nn.Module):
 
     def forward(self,x,encoder_out,target_mask=None,padding=None):
         x_embed = self.embed(x) * math.sqrt(self.d_model) # (B,L,E)
-        out = self.position_embed(x_embed) # (B,L,E)
-        out = self.decoder(out,encoder_out,tgt_mask = target_mask,tgt_key_padding_mask = padding) # (B,L,E)
+        out     = self.position_embed(x_embed) # (B,L,E)
+        out     = self.decoder(out,encoder_out,tgt_mask = target_mask,tgt_key_padding_mask = padding) # (B,L,E)
         return out
     
 class OCRTransformerModel(nn.Module):
@@ -157,9 +162,9 @@ class OCRTransformerModel(nn.Module):
         super().__init__()
         self.encoder = Encoder(config["transformer"],config["encoder"],config["device"])
         self.decoder = Decoder(config["transformer"],vocab_size,config["device"])
-        self.fc = nn.Linear(config["transformer"]['embed_size'],vocab_size).to(config["device"])
+        self.fc      = nn.Linear(config["transformer"]['embed_size'],vocab_size).to(config["device"])
+        self.device  = config["device"]
         self.apply(self._init_weights)
-        self.device = config["device"]
         
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -198,8 +203,8 @@ class OCRTransformerModel(nn.Module):
         dict_target = {}
         c = 0
         with torch.no_grad():
-            src_in = torch.stack(list(src.values()))
-            encoder_out = self.encoder(src_in)
+            src_in       = torch.stack(list(src.values()))
+            encoder_out  = self.encoder(src_in)
             dict_enc_out = {s_key:e_out for s_key,e_out in zip(list(src.keys()),encoder_out)}
             while c<32:
                 lst_key = list(target.keys())
@@ -216,9 +221,9 @@ class OCRTransformerModel(nn.Module):
                                             encoder_out = tensor_encoder_out,
                                             target_mask = self._target_mask(tensor_target),
                                             mode        = "predict") # (B,L,V)
-                logits = logits[:,-1,:] 
+                logits      = logits[:,-1,:] 
                 target_next = torch.argmax(logits,dim=-1,keepdim=True)
-                target = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
+                target      = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
                 c+=1
         return dict_target
     
