@@ -11,23 +11,26 @@ import torch.nn as nn
 import time
 import os
 import warnings
+import random
+import numpy as np
 from PIL import Image
 warnings.filterwarnings("ignore")
 
 def seed_everything(seed=42):
   os.environ['PYTHONHASHSEED'] = str(seed)
   torch.manual_seed(seed)
+  random.seed(seed)
+  np.random.seed(seed)
   torch.backends.cudnn.deterministic = True
   torch.backends.cudnn.benchmark = False
 
-seed_everything(42)
 class Trainer:
     def __init__(self,
                  config,
                  MODEL_PATH = None,
                  IMAGE_PATH = None,
                  TARGET_PATH = None):
-
+        seed_everything(config['seed'])
 
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
