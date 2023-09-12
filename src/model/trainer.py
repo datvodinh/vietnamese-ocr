@@ -13,6 +13,7 @@ import os
 import warnings
 import random
 import numpy as np
+import cv2
 from PIL import Image
 warnings.filterwarnings("ignore")
 
@@ -27,28 +28,25 @@ def seed_everything(seed=42):
 class Trainer:
     def __init__(self,
                  config,
-                 MODEL_PATH = None,
-                 IMAGE_PATH = None,
-                 TARGET_PATH = None):
+                 MODEL_PATH  = None,
+                 IMAGE_PATH  = None,
+                 TARGET_PATH = None,
+                 device      = torch.device('cpu')):
         seed_everything(config['seed'])
-
+        self.device     = device
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
-                                     device      = config['device'])
+                                     device      = device)
         self.transform  = Transform(img_size = config['img_size'],
-                                    padding  = config['padding'],
-                                    enhance  = config['enhancing'],
                                     training = True)
         self.eval_transform = Transform(img_size = config['img_size'],
-                                    padding  = config['padding'],
-                                    enhance  = config['enhancing'],
                                     training = False)
         self.dataloader = NormalLoader(root_dir = IMAGE_PATH,
                                     vocab       = self.vocabulary,
                                     batch_size  = config['batch_size'],
                                     img_size    = config['img_size'],
                                     transform   = self.transform,
-                                    device      = config['device'])
+                                    device      = device)
         
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss(label_smoothing=config['label_smoothing'])
@@ -57,19 +55,19 @@ class Trainer:
         if MODEL_PATH is not None:
             try:
                 data_dict      = torch.load(MODEL_PATH)
-                self.model     = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'])
+                self.model     = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'],device)
                 self.model.load_state_dict(data_dict['state_dict'])
                 load_scheduler = True
                 self.config    = data_dict['config']
                 self.cer_val   = data_dict['cer_val']
                 print('TRAINING CONTINUE!')
             except:
-                self.model     = OCRTransformerModel(config,self.vocabulary.vocab_size)
+                self.model     = OCRTransformerModel(config,self.vocabulary.vocab_size,device)
                 load_scheduler = False
                 self.cer_val   = 100
                 print("TRAIN FROM BEGINNING!")
         else:    
-            self.model         = OCRTransformerModel(config,self.vocabulary.vocab_size)
+            self.model         = OCRTransformerModel(config,self.vocabulary.vocab_size,device)
             load_scheduler     = False
             self.cer_val       = 100
             print("TRAIN FROM BEGINNING!")
@@ -114,7 +112,7 @@ class Trainer:
                     else:
                         self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=False)
 
-            eval_dict = self._eval(self.dataloader.root_dir,self.dataloader.val_dir,self.config['device'])
+            eval_dict = self._eval(self.dataloader.root_dir,self.dataloader.val_dir,self.device)
             pred_list = list(eval_dict.values())
             true_list = [self.vocabulary.decode(self.dataloader.target_dict[k]) for k in eval_dict.keys()]
             cer_score = char_error_rate(pred_list,true_list).item()
@@ -168,7 +166,7 @@ class Trainer:
             dict_batch_img = {}
             dict_batch_target = {}
             for d in batch_dir:
-                img = Image.open(os.path.join(root_dir,d))
+                img =  Image.open(os.path.join(root_dir,d)).convert("L")
                 new_img = self.eval_transform(img)
                 file_name = d
                 dict_batch_img[file_name] = new_img.to(device)

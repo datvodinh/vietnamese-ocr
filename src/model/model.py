@@ -158,12 +158,12 @@ class Decoder(nn.Module):
         return out
     
 class OCRTransformerModel(nn.Module):
-    def __init__(self,config,vocab_size):
+    def __init__(self,config,vocab_size,device):
         super().__init__()
-        self.encoder = Encoder(config["transformer"],config["encoder"],config["device"])
-        self.decoder = Decoder(config["transformer"],vocab_size,config["device"])
-        self.fc      = nn.Linear(config["transformer"]['embed_size'],vocab_size).to(config["device"])
-        self.device  = config["device"]
+        self.encoder = Encoder(config["transformer"],config["encoder"],device)
+        self.decoder = Decoder(config["transformer"],vocab_size,device)
+        self.fc      = nn.Linear(config["transformer"]['embed_size'],vocab_size).to(device)
+        self.device  = device
         self.apply(self._init_weights)
         
     def _init_weights(self, module):

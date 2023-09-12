@@ -8,70 +8,55 @@ import PIL
  array([0.27464595, 0.27378836, 0.27584539])) std
  '''
 class Transform:
-    def __init__(self,img_size=(64,192),padding=True,training=True,enhance=True) -> None:
-        if enhance:
-            self.enhance    = Enhance()
+    def __init__(self,img_size=(64,256),training=True) -> None:
         self.img_size   = img_size
-        self.padding    = padding
-        self.is_enc     = enhance
-        self.resize_img = A.Resize(img_size[0],img_size[1])
+        self.enhance    = Enhance()
         if training:
-            self.rescale = False
-            if padding:
-                self.pad_img = A.PadIfNeeded(min_height=img_size[0],
-                                             min_width=img_size[1],
-                                             position=A.PadIfNeeded.PositionType.RANDOM,
-                                             border_mode=cv2.BORDER_CONSTANT,
-                                             value=(255,255,255))
             self.transform = A.Compose([
-                        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=(-0.3, 0.), rotate_limit=15,
-                            border_mode=0, interpolation=3, value=[255, 255, 255],rotate_method="ellipse", p=0.5),
+                        Binarization(img_size=self.img_size),
+                        A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],position=A.PadIfNeeded.PositionType.RANDOM,
+                                    border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
+                        A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.15, 0), rotate_limit=5,
+                            border_mode=0, interpolation=3, value=[0,0,0],rotate_method="ellipse", p=0.5),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
-                            value=[255, 255, 255], p=.5),
+                            value=[0,0,0], p=.5),
                         A.GaussNoise(10, p=.5),
                         A.RandomBrightnessContrast(.1, .2, True, p=0.5),
-                        A.PixelDropout(p=0.5),
                         A.ImageCompression(95, p=.5),
-                        A.ToGray(always_apply=True),
-                        A.Normalize(mean=[0.5,0.5,0.5],std=[1,1,1]),
+                        A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
                         ToTensorV2()
-                    ]
-                )
+                        ])
             
         else:
-            self.rescale = True
-            if padding:
-                self.pad_img = A.PadIfNeeded(min_height=img_size[0],
-                                             min_width=img_size[1],
-                                             position=A.PadIfNeeded.PositionType.CENTER,
-                                             border_mode=cv2.BORDER_CONSTANT,
-                                             value=(255,255,255))
-            self.transform = A.Compose(
-                [
-                    A.ToGray(always_apply=True),
-                    A.Normalize(mean=[0.5,0.5,0.5],std=[1,1,1]),
-                    ToTensorV2(),
-                ]
-            )
+            self.transform = A.Compose([
+                        Binarization(img_size=self.img_size),
+                        A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],position=A.PadIfNeeded.PositionType.CENTER,
+                                    border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
+                        A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
+                        ToTensorV2()
+                    ])
     def __call__(self,img):
-        if self.rescale:
-            img = resize_keep_ratio(img,self.img_size[0])
-        if self.is_enc:
-            img = self.enhance(img)
-        if self.padding:    
-            img = self.pad_img(image=np.asarray(img))['image']
-            img = self.resize_img(image=np.asarray(img))['image']
-            img = self.transform(image=np.asarray(img))['image']
-        else:
-            img = self.resize_img(image=np.asarray(img))['image']
-            img = self.transform(image=np.asarray(img))['image']
-        return img
+        img = np.asarray(self.enhance(img))
+        img = self.transform(image=img)['image']
+        return (img.float())
 # mean_H = 71.9, median_H = 64.
 # mean_W = 131.1, median_W = 118.
+
+class Binarization:
+    def __init__(self,img_size=(64,256)) -> None:
+        self.img_size = img_size
+    def __call__(self,image):
+        height, width = image.shape
+        img = cv2.GaussianBlur(image, (5,5), 0)
+        img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 4)
+        img = cv2.resize(img,(min(self.img_size[1],int(self.img_size[0]/height*width)),self.img_size[0]))
+        img = np.expand_dims(img , axis = 2)
+        img = np.concatenate([img, img, img], axis=2)
+        return {"image":img}
+    
 class Enhance:
     def __init__(self):
         pass
-
     def __call__(self, img, mag=-1, prob=1.):
         if np.random.uniform(0,1) > prob:
             return img
@@ -86,12 +71,3 @@ class Enhance:
         img = PIL.ImageEnhance.Sharpness(img).enhance(magnitude)
         img = PIL.ImageOps.autocontrast(img)
         return img
-
-def resize_keep_ratio(img, new_height):
-    # Calculate the new width while maintaining the aspect ratio
-    width, height = img.size
-    aspect_ratio = width / height
-    new_width = int(new_height * aspect_ratio)
-    # Resize the img
-    resized_img = img.resize((new_width, new_height))
-    return resized_img
