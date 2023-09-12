@@ -113,9 +113,9 @@ class Trainer:
 
             eval_dict = self._eval(self.dataloader.root_dir,self.dataloader.val_dir,self.config['device'])
             pred_list = list(eval_dict.values())
-            true_list = [self.dataloader.target_dict[k] for k in eval_dict.keys()]
+            true_list = [self.vocabulary.decode(self.dataloader.target_dict[k]) for k in eval_dict.keys()]
             cer_score = char_error_rate(pred_list,true_list).item()
-            if cer_score < self.cer_val:
+            if cer_score <= self.cer_val:
                 self.cer_val = cer_score
                 self._save_checkpoint(save_best=True)
             print(f"CER: {cer_score:.2f} |")
