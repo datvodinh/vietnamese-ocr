@@ -9,19 +9,17 @@ import os
 import time
 
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 class Inference:
-    def __init__(self,MODEL_PATH):
+    def __init__(self,MODEL_PATH,device):
         data_dict = torch.load(MODEL_PATH)
-        self.model = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'])
+        self.device = device
+        self.model = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'],device)
         self.model.load_state_dict(data_dict['state_dict'])
         self.model.eval()  
         self.letter_to_idx = data_dict['letter_to_idx']
         self.idx_to_letter = data_dict['idx_to_letter']
         self.config = data_dict['config']
         self.transform = Transform(img_size=self.config['img_size'],
-                                   padding=self.config['padding'],
-                                   enhance=self.config['enhancing'],
                                    training=False)
         
         print(self.config)
@@ -44,11 +42,11 @@ class Inference:
             dict_batch_img = {}
             dict_batch_target = {}
             for d in batch_dir:
-                img = Image.open(os.path.join(root_dir,d))
+                img = Image.open(os.path.join(root_dir,d)).convert("L")
                 new_img = self.transform(img)
                 file_name = d
-                dict_batch_img[file_name] = new_img.to(device)
-                dict_batch_target[file_name] = torch.tensor([0]).long().to(device)
+                dict_batch_img[file_name] = new_img.to(self.device)
+                dict_batch_target[file_name] = torch.tensor([0]).long().to(self.device)
             dict_batch_target = self.model(dict_batch_img,dict_batch_target,mode='predict')
             dict_target = dict_target | dict_batch_target
             c+=1

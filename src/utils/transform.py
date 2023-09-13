@@ -13,11 +13,12 @@ class Transform:
         self.enhance    = Enhance()
         if training:
             self.transform = A.Compose([
-                        Binarization(img_size=self.img_size),
+                        Binarization(img_size=self.img_size), #dict
+                        Curve(prob=0.7),
                         A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],position=A.PadIfNeeded.PositionType.RANDOM,
                                     border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
-                        A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.15, 0), rotate_limit=5,
-                            border_mode=0, interpolation=3, value=[0,0,0],rotate_method="ellipse", p=0.5),
+                        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=(-0.15, 0), rotate_limit=5,
+                            border_mode=0, interpolation=3, value=[0,0,0],rotate_method="ellipse", p=0.7),
                         A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
                             value=[0,0,0], p=.5),
                         A.GaussNoise(10, p=.5),
@@ -71,3 +72,35 @@ class Enhance:
         img = PIL.ImageEnhance.Sharpness(img).enhance(magnitude)
         img = PIL.ImageOps.autocontrast(img)
         return img
+
+class Curve:
+    def __init__(self,prob=1.):
+        self.prob = prob
+    def __call__(self,**img):
+        img = img['image']
+        if np.random.uniform(0,1) > self.prob:
+            return {"image":img}
+        
+        height, width = img.shape[:2]
+        # Generate a meshgrid of the same shape as the image
+        x, y = np.meshgrid(np.arange(width), np.arange(height))
+        ### Design warping 
+        # Normalize the coordinates to the range [-1, 1]
+        x = (x - (width / 2)) / (width / 2)
+        y = (y - (height / 2)) / (height / 2)
+        # # Map the distorted coordinates back to the image space
+        x = (x + np.sin(y*2)*0.1).astype(np.float32)
+        temp=np.random.uniform(0,1)
+        curve = np.random.uniform(0.15,0.35)
+        if temp > 0.5:
+            y = (y + np.cos(x*2)*-curve).astype(np.float32)
+        else:
+            y = (y + np.cos(x*2)*curve).astype(np.float32)
+
+        x = ((x * (width / 2)) + (width / 2)).astype(np.float32)
+        y = ((y * (height / 2)) + (height / 2)).astype(np.float32)
+
+        # Remap the image using the distorted coordinates
+        curved_image = cv2.remap(img, x, y, cv2.INTER_LINEAR)
+
+        return {"image":curved_image}

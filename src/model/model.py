@@ -225,5 +225,10 @@ class OCRTransformerModel(nn.Module):
                 target_next = torch.argmax(logits,dim=-1,keepdim=True)
                 target      = {k: torch.cat([target[k],t_next]) for k,t_next in zip(list(target.keys()),target_next)}
                 c+=1
+                if c==32:
+                    if len(dict_enc_out) > 0:
+                        for k in lst_key:
+                            dict_target[k] = target.pop(k)
+                            dict_enc_out.pop(k)
         return dict_target
     
