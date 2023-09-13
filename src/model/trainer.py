@@ -119,7 +119,7 @@ class Trainer:
             if cer_score <= self.cer_val:
                 self.cer_val = cer_score
                 self._save_checkpoint(save_best=True)
-            print(f"CER: {cer_score:.2f} |")
+            print(f"CER: {cer_score:.5f} |")
             
             if self.config['print_type'] == 'per_epoch':
                 self.pro_bar.step(idx,e,self.stat.loss,self.stat.acc,start_time,printing=True)
