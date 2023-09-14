@@ -12,7 +12,7 @@ encoder:
     patch_size: [4,4]      
     embed_dim: 96          
     window_size: [8,8]      
-    dropout: 0.1           
+    dropout: 0.           
     depths: [2,6,2]     
     num_heads: [6,12,24] 
 decoder:
@@ -20,11 +20,11 @@ decoder:
 scheduler:
   active: true       
   first_cycle_steps: 2000  
-  cycle_mult: 1  
+  cycle_mult: 3  
   max_lr: 0.0002       
-  min_lr: 0.00003
-  warmup_steps: 200
-  gamma: 0.99 
+  min_lr: 0.00005
+  warmup_steps: 400
+  gamma: 0.8
 dataloader:
   num_workers: 0
   type: normal  
@@ -33,7 +33,7 @@ lr: 0.0001
 label_smoothing: 0.1
 max_grad_norm: 0.5
 batch_size: 50       
-num_epochs: 200
+num_epochs: 100
 save_per_epochs: 1
 print_type: per_epoch
 seed: 0
