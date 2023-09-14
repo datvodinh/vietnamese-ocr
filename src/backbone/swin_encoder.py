@@ -15,6 +15,7 @@ class SwinTransformerBackbone(nn.Module):
 
     def forward(self,x):
         x = self.model.features(x) # B H W C
+        x = self.model.norm(x)     # B H W C
         x = self.model.permute(x)  # B C H W
         return x
     
@@ -32,5 +33,6 @@ class SwinTransformerBackbone_v2(nn.Module):
 
     def forward(self,x):
         x = self.model.features(x) # B H W C
+        x = self.model.norm(x)     # B H W C
         x = self.model.permute(x)  # B C H W
         return x

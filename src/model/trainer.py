@@ -146,7 +146,7 @@ class Trainer:
                 torch.save(save_dict, file_path)
         else:
             try:
-                file_path = f"{self.model_path}/best_model.pt"
+                file_path = f"{self.model_path}/model.pth"
                 torch.save(save_dict, file_path)
             except:
                 file_path = f"{self.model_path}h"
