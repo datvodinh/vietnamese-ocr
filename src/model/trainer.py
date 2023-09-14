@@ -149,7 +149,7 @@ class Trainer:
                 file_path = f"{self.model_path}/best_model.pt"
                 torch.save(save_dict, file_path)
             except:
-                file_path = f"best_{self.model_path}"
+                file_path = f"{self.model_path}h"
                 torch.save(save_dict, file_path)
 
     def _eval(self,root_dir,eval_img_dir,device):
