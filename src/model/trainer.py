@@ -139,17 +139,17 @@ class Trainer:
         }
         if not save_best:
             try:
-                file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}.pt"
+                file_path = f"{self.model_path}/model.pt"
                 torch.save(save_dict, file_path)
             except:
                 file_path = f"{self.model_path}"
                 torch.save(save_dict, file_path)
         else:
             try:
-                file_path = f"{self.model_path}/model_{self.config['encoder']['type']}_{self.config['num_epochs']}_best.pt"
+                file_path = f"{self.model_path}/best_model.pt"
                 torch.save(save_dict, file_path)
             except:
-                file_path = f"{self.model_path}_best"
+                file_path = f"best_{self.model_path}"
                 torch.save(save_dict, file_path)
 
     def _eval(self,root_dir,eval_img_dir,device):

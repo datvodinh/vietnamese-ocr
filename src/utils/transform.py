@@ -9,32 +9,32 @@ class Transform:
         self.enhance    = Enhance()
         if training:
             self.transform = A.Compose([
-                            Binarization(img_size=self.img_size), #dict
-                            Curve(prob=0.3),
-                            A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
-                                            position=A.PadIfNeeded.PositionType.RANDOM,
-                                            border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
-                            A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=5,
-                                border_mode=0, interpolation=3, value=[0,0,0], p=0.5),
-                            A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
-                                value=[0,0,0], p=.3),
-                            A.PixelDropout(dropout_prob=0.01,drop_value=255,p=0.3),
-                            A.GaussNoise(10, p=.3),
-                            A.RandomBrightnessContrast(.1, .2, True, p=0.3),
-                            A.ImageCompression(95, p=.3),
-                            A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
-                            ToTensorV2()
-                            ])
+                Binarization(img_size=self.img_size), #dict
+                Curve(prob=0.3),
+                A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
+                                position=A.PadIfNeeded.PositionType.RANDOM,
+                                border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=5,
+                    border_mode=0, interpolation=3, value=[0,0,0], p=0.5),
+                A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
+                    value=[0,0,0], p=.3),
+                A.PixelDropout(dropout_prob=0.01,drop_value=255,p=0.3),
+                A.GaussNoise(10, p=.3),
+                A.RandomBrightnessContrast(.1, .2, True, p=0.3),
+                A.ImageCompression(95, p=.3),
+                A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
+                ToTensorV2()
+                ])
             
         else:
             self.transform = A.Compose([
-                        Binarization(img_size=self.img_size),
-                        A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
-                                      position=A.PadIfNeeded.PositionType.CENTER,
-                                      border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
-                        A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
-                        ToTensorV2()
-                    ])
+                Binarization(img_size=self.img_size),
+                A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
+                                position=A.PadIfNeeded.PositionType.CENTER,
+                                border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
+                A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
+                ToTensorV2()
+                ])
     def __call__(self,img):
         img = np.asarray(self.enhance(img))
         img = self.transform(image=img)['image']
