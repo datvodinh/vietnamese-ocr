@@ -6,6 +6,7 @@ from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
 from src.utils.custom_loader import NormalLoader
 from src.utils.cer import char_error_rate
+from torch.optim.lr_scheduler import OneCycleLR
 import torch
 import torch.nn as nn
 import time
@@ -80,14 +81,18 @@ class Trainer:
             load_scheduler     = False
             self.cer_val       = 100
             print("TRAIN FROM BEGINNING!")
-        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'])
-        self.scheduler  = CosineAnnealingWarmupRestarts(optimizer         = self.optimizer,
-                                                        first_cycle_steps = config['scheduler']['first_cycle_steps'],
-                                                        cycle_mult        = config['scheduler']['cycle_mult'],
-                                                        max_lr            = config['scheduler']['max_lr'],
-                                                        min_lr            = config['scheduler']['min_lr'],
-                                                        warmup_steps      = config['scheduler']['warmup_steps'],
-                                                        gamma             = config['scheduler']['gamma'])
+        self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'], betas=(0.9, 0.98), eps=1e-09)
+        # self.scheduler  = CosineAnnealingWarmupRestarts(optimizer         = self.optimizer,
+        #                                                 first_cycle_steps = config['scheduler']['first_cycle_steps'],
+        #                                                 cycle_mult        = config['scheduler']['cycle_mult'],
+        #                                                 max_lr            = config['scheduler']['max_lr'],
+        #                                                 min_lr            = config['scheduler']['min_lr'],
+        #                                                 warmup_steps      = config['scheduler']['warmup_steps'],
+        #                                                 gamma             = config['scheduler']['gamma'])
+        self.scheduler = OneCycleLR(optimizer=self.optimizer,
+                                    total_steps=400000,
+                                    max_lr=config['scheduler']['max_lr'],
+                                    pct_start=0.1)
         if load_scheduler:
             self.scheduler.load_state_dict(data_dict['scheduler'])
         self.model_path = MODEL_PATH
