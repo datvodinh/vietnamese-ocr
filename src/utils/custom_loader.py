@@ -43,9 +43,12 @@ class NormalLoader:
             else:
                 src = torch.stack([torch.from_numpy(cv2.imread(os.path.join(self.root_dir,f))) / 255.0
                                                     for f in batch_dir]).to(self.device)
+                if src.shape[1]!=3: # B C H W, C = 3
+                    src = src.permute(0,3,1,2)
             target = [self.target_dict[f] for f in batch_dir]
             target_in,target_out,padding = self._padding(target)
-            yield src.permute(0,3,1,2),target_in,target_out,padding
+
+            yield src,target_in,target_out,padding
     
     def _padding(self,target):
         max_len = 0
