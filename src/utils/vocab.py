@@ -5,6 +5,8 @@ class Vocabulary:
         with open(data_path,"r") as f:
             data = f.read()
         new_data = list(map(lambda i:i.split("\t"),data.split("\n")))
+        if new_data[-1][0]=="":
+            new_data.pop(-1)
         vocab = []
         for i in range(len(new_data)):
             vocab = list(set(vocab + list(new_data[i][1])))
