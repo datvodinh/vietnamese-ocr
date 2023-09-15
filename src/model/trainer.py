@@ -37,10 +37,19 @@ class Trainer:
         self.config     = config
         self.vocabulary = Vocabulary(data_path   = TARGET_PATH,
                                      device      = device)
-        self.transform  = Transform(img_size = config['img_size'],
-                                    training = True)
-        self.eval_transform = Transform(img_size = config['img_size'],
-                                    training = False)
+        if "augmentation" in config:
+            if config['augmentation']:
+                self.transform  = Transform(img_size = config['img_size'],
+                                        training = True)
+                self.eval_transform = Transform(img_size = config['img_size'],
+                                        training = False)
+            else:
+                self.transform = None
+                self.eval_transform = None
+        else:
+            self.transform = None
+            self.eval_transform = None
+            
         self.dataloader = NormalLoader(root_dir = IMAGE_PATH,
                                     vocab       = self.vocabulary,
                                     batch_size  = config['batch_size'],

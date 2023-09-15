@@ -2,7 +2,8 @@ import torch
 import os
 from PIL import Image
 import random
-
+import numpy as np
+import cv2
 class NormalLoader:
     def __init__(self,
                  root_dir,
@@ -36,8 +37,12 @@ class NormalLoader:
         for i in range(0,len(self.train_dir),self.batch_size):
             start,end = i,i+self.batch_size
             batch_dir = self.train_dir[start:end]
-            src = torch.stack([self.transform(img=Image.open(os.path.join(self.root_dir,f)).convert("L")) 
-                                                for f in batch_dir]).to(self.device)
+            if self.transform is not None:
+                src = torch.stack([self.transform(img=Image.open(os.path.join(self.root_dir,f)).convert("L")) 
+                                                    for f in batch_dir]).to(self.device)
+            else:
+                src = torch.stack([torch.from_numpy(cv2.imread(os.path.join(self.root_dir,f))) / 255.0
+                                                    for f in batch_dir]).to(self.device)
             target = [self.target_dict[f] for f in batch_dir]
             target_in,target_out,padding = self._padding(target)
             yield src,target_in,target_out,padding
