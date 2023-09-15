@@ -187,6 +187,7 @@ class Trainer:
                 else:
                     img =  cv2.imread(os.path.join(root_dir,d))
                     new_img = torch.from_numpy(img) / 255.0
+                    new_img = new_img.permute(0,3,1,2)
                 file_name = d
                 dict_batch_img[file_name] = new_img.to(device)
                 dict_batch_target[file_name] = torch.tensor([0]).long().to(device)
