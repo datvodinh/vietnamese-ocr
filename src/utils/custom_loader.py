@@ -45,7 +45,7 @@ class NormalLoader:
                                                     for f in batch_dir]).to(self.device)
             target = [self.target_dict[f] for f in batch_dir]
             target_in,target_out,padding = self._padding(target)
-            yield src,target_in,target_out,padding
+            yield src.permute(0,3,1,2),target_in,target_out,padding
     
     def _padding(self,target):
         max_len = 0
