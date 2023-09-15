@@ -176,7 +176,10 @@ class Trainer:
             dict_batch_target = {}
             for d in batch_dir:
                 img =  Image.open(os.path.join(root_dir,d)).convert("L")
-                new_img = self.eval_transform(img)
+                if self.eval_transform is not None:
+                    new_img = self.eval_transform(img)
+                else:
+                    new_img = img
                 file_name = d
                 dict_batch_img[file_name] = new_img.to(device)
                 dict_batch_target[file_name] = torch.tensor([0]).long().to(device)
