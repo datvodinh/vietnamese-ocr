@@ -13,6 +13,9 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import warnings
 warnings.filterwarnings("ignore")
+from datetime import datetime
+DATE = datetime.now().strftime('%Y-%m-%d-%Hh-%Mp-%Ss')
+
 class Inference:
     def __init__(self,MODEL_PATH,device=torch.device('cpu')):
         data_dict = torch.load(MODEL_PATH)
@@ -38,11 +41,11 @@ class Inference:
                         ToTensorV2()
                     ])
 
-    def predict_batch(self,root_dir,list_dir,batch_size=32,save=False,save_dir=None):
-        
-        dict_target_decode = self._predict_batch(root_dir,list_dir,batch_size)
+    def predict_batch(self,img_dir,batch_size=32,save=True):
+        list_dir = os.listdir(img_dir)
+        dict_target_decode = self._predict_batch(img_dir,list_dir,batch_size)
         if save:
-            self._save(dict_target_decode,save_dir)
+            self._save(dict_target_decode,f"prediction/{DATE}")
         
         return dict_target_decode
     
@@ -112,7 +115,7 @@ class Inference:
             file_name = f"{save_dir}/prediction.txt"
         else:
             file_name = "prediction.txt"
-        with open(file_name, "w") as f:
+        with open(file_name, "w",encoding="utf-8") as f:
             for d in data:
                 f.write(d + "\n")
         print(f"Prediction save to: {file_name}")

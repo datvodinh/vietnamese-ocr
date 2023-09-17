@@ -2,7 +2,7 @@ import torch
 
 class Vocabulary:
     def __init__(self,device,data_path=None):
-        with open(data_path,"r") as f:
+        with open(data_path,"r",encoding="utf-8") as f:
             data = f.read()
         new_data = list(map(lambda i:i.split("\t"),data.split("\n")))
         if new_data[-1][0]=="":

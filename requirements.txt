@@ -7,3 +7,4 @@ torchaudio==2.0.2
 torchview==0.2.6
 torchvision==0.15.2
 numpy
+gdown

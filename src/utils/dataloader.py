@@ -4,7 +4,7 @@ from PIL import Image
 import random
 import numpy as np
 import cv2
-class NormalLoader:
+class DataLoader:
     def __init__(self,
                  root_dir,
                  vocab,

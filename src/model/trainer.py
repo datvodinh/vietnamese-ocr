@@ -4,7 +4,7 @@ from src.model.model import OCRTransformerModel
 from src.utils.statistic import Statistic
 from src.utils.progress_bar import *
 from src.utils.lr_scheduler import CosineAnnealingWarmupRestarts
-from src.utils.custom_loader import NormalLoader
+from src.utils.dataloader import DataLoader
 from src.utils.cer import char_error_rate
 from torch.optim.lr_scheduler import OneCycleLR
 import torch
@@ -51,7 +51,7 @@ class Trainer:
             self.transform = None
             self.eval_transform = None
             
-        self.dataloader = NormalLoader(root_dir = IMAGE_PATH,
+        self.dataloader = DataLoader(root_dir = IMAGE_PATH,
                                     vocab       = self.vocabulary,
                                     batch_size  = config['batch_size'],
                                     img_size    = config['img_size'],
@@ -82,13 +82,7 @@ class Trainer:
             self.cer_val       = 100
             print("TRAIN FROM BEGINNING!")
         self.optimizer  = torch.optim.AdamW(self.model.parameters(),lr=self.config['lr'], betas=(0.9, 0.98), eps=1e-09)
-        # self.scheduler  = CosineAnnealingWarmupRestarts(optimizer         = self.optimizer,
-        #                                                 first_cycle_steps = config['scheduler']['first_cycle_steps'],
-        #                                                 cycle_mult        = config['scheduler']['cycle_mult'],
-        #                                                 max_lr            = config['scheduler']['max_lr'],
-        #                                                 min_lr            = config['scheduler']['min_lr'],
-        #                                                 warmup_steps      = config['scheduler']['warmup_steps'],
-        #                                                 gamma             = config['scheduler']['gamma'])
+
         self.scheduler = OneCycleLR(optimizer=self.optimizer,
                                     total_steps=400000,
                                     max_lr=config['scheduler']['max_lr'],
@@ -96,6 +90,9 @@ class Trainer:
         if load_scheduler:
             self.scheduler.load_state_dict(data_dict['scheduler'])
         self.model_path = MODEL_PATH
+        if ".pt" not in self.model_path:
+            if not os.path.exists(self.model_path):
+                os.makedirs(self.model_path)
         
         
     def train(self):
@@ -152,19 +149,18 @@ class Trainer:
             'cer_val': self.cer_val
         }
         if not save_best:
-            try:
+            if ".pt" in self.model_path:
+                file_path = self.model_path
+            else:
                 file_path = f"{self.model_path}/model.pt"
-                torch.save(save_dict, file_path)
-            except:
-                file_path = f"{self.model_path}"
-                torch.save(save_dict, file_path)
+            torch.save(save_dict, file_path)
+
         else:
-            try:
-                file_path = f"{self.model_path}/model.pth"
-                torch.save(save_dict, file_path)
-            except:
-                file_path = f"{self.model_path}h"
-                torch.save(save_dict, file_path)
+            if ".pt" in self.model_path:
+                file_path = self.model_path
+            else:
+                file_path = f"{self.model_path}/model_best.pt"
+            torch.save(save_dict, file_path)
 
     def _eval(self,root_dir,eval_img_dir,device):
         self.model.eval()
