@@ -9,16 +9,20 @@ class Transform:
         self.enhance    = Enhance()
         if training:
             self.transform = A.Compose([
-                Binarization(img_size=self.img_size), #dict
+                InvertRescale(img_size=self.img_size), #dict
                 Curve(prob=0.5),
-                A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
+                A.OneOf([
+                    A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
                                 position=A.PadIfNeeded.PositionType.RANDOM,
                                 border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
-                A.ShiftScaleRotate(shift_limit=0, scale_limit=(-0.2,0), rotate_limit=(-15,15),
-                    border_mode=0, interpolation=3, value=[0,0,0], p=0.8),
+                    A.Resize(height=img_size[0],width=img_size[1])
+
+                ],p=1.),
+                
+                A.SafeRotate(limit=30,interpolation=3,border_mode = cv2.BORDER_CONSTANT,value=(0,0,0),p=0.5),
                 A.GridDistortion(distort_limit=0.3, border_mode=0, interpolation=3,
                     value=[0,0,0], p=.5),
-                A.PixelDropout(dropout_prob=0.01,drop_value=255,p=0.3),
+                A.PixelDropout(dropout_prob=0.01,drop_value=255,p=0.5),
                 A.GaussNoise(10, p=.5),
                 A.RandomBrightnessContrast(.1, .2, True, p=0.5),
                 A.ImageCompression(95, p=.5),
@@ -28,7 +32,7 @@ class Transform:
             
         else:
             self.transform = A.Compose([
-                Binarization(img_size=self.img_size),
+                InvertRescale(img_size=self.img_size),
                 A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
                                 position=A.PadIfNeeded.PositionType.CENTER,
                                 border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
@@ -42,13 +46,13 @@ class Transform:
 # mean_H = 71.9, median_H = 64.
 # mean_W = 131.1, median_W = 118.
 
-class Binarization:
+class InvertRescale:
     def __init__(self,img_size=(64,256)) -> None:
         self.img_size = img_size
     def __call__(self,image):
         height, width = image.shape
-        img = cv2.GaussianBlur(image, (5,5), 0)
-        img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 4)
+        img = image
+        img = cv2.bitwise_not(img)
         img = cv2.resize(img,(min(self.img_size[1],int(self.img_size[0]/height*width)),self.img_size[0]))
         img = np.expand_dims(img , axis = 2)
         img = np.concatenate([img, img, img], axis=2)
@@ -88,9 +92,13 @@ class Curve:
         x = (x - (width / 2)) / (width / 2)
         y = (y - (height / 2)) / (height / 2)
         # # Map the distorted coordinates back to the image space
-        x = (x + np.sin(y*2)*0.1).astype(np.float32)
         temp=np.random.uniform(0,1)
-        curve = np.random.uniform(0.15,0.35)
+        if temp > 0.5:
+            x = (x + np.sin(y*2)*0.1).astype(np.float32)
+        else:
+            x = (x + np.sin(y*2)*-0.1).astype(np.float32)
+        temp=np.random.uniform(0,1)
+        curve = np.random.uniform(0.2,0.4)
         if temp > 0.5:
             y = (y + np.cos(x*2)*-curve).astype(np.float32)
         else:
