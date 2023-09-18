@@ -58,6 +58,8 @@ class Trainer:
                                     transform   = self.transform,
                                     device      = device)
         
+        print(f"TOTAL IMAGES: {len(os.listdir(IMAGE_PATH))}")
+        
         self.stat       = Statistic()
         self.criterion  = nn.CrossEntropyLoss(label_smoothing=config['label_smoothing'])
         self.len_loader = len(self.dataloader)
