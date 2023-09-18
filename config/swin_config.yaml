@@ -21,7 +21,7 @@ scheduler:
   active: true       
   first_cycle_steps: 2000  
   cycle_mult: 3  
-  max_lr: 0.0002       
+  max_lr: 0.0003       
   min_lr: 0.00005
   warmup_steps: 400
   gamma: 0.8
