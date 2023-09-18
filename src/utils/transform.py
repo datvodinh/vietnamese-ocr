@@ -8,24 +8,36 @@ class Transform:
         self.img_size   = img_size
         self.enhance    = Enhance()
         if training:
-            self.transform = A.Compose([
-                InvertRescale(img_size=self.img_size), #dict
-                Curve(prob=0.5),
-                A.OneOf([
+            Pad_or_Rezise = A.OneOf([
                     A.PadIfNeeded(min_height=img_size[0],min_width=img_size[1],
                                 position=A.PadIfNeeded.PositionType.RANDOM,
                                 border_mode=cv2.BORDER_CONSTANT,value=(0,0,0)),
                     A.Resize(height=img_size[0],width=img_size[1])
 
-                ],p=1.),
-                
-                A.SafeRotate(limit=30,interpolation=3,border_mode = cv2.BORDER_CONSTANT,value=(0,0,0),p=0.5),
-                A.GridDistortion(distort_limit=0.3, border_mode=0, interpolation=3,
+                ],p=1.)
+            Curve_or_Rotate = A.OneOf([
+                Curve(p=1),
+                A.SafeRotate(limit=30,interpolation=3,border_mode = cv2.BORDER_CONSTANT,value=(0,0,0),p=1)
+            ])
+            self.transform = A.Compose([
+                InvertRescale(img_size=self.img_size), #dict
+                A.GridDistortion(distort_limit=0.1, border_mode=0, interpolation=3,
                     value=[0,0,0], p=.5),
+                A.Defocus(radius=(1,3),p=0.5),
                 A.PixelDropout(dropout_prob=0.01,drop_value=255,p=0.5),
                 A.GaussNoise(10, p=.5),
                 A.RandomBrightnessContrast(.1, .2, True, p=0.5),
                 A.ImageCompression(95, p=.5),
+                A.OneOf([
+                    A.Compose([
+                        Curve_or_Rotate,
+                        Pad_or_Rezise
+                    ]),
+                    A.Compose([
+                        Pad_or_Rezise,
+                        Curve_or_Rotate
+                    ]),
+                ],p=1),
                 A.Normalize(mean=(0.,0.,0.),std=(1.,1.,1.)),
                 ToTensorV2()
                 ])
@@ -61,8 +73,8 @@ class InvertRescale:
 class Enhance:
     def __init__(self):
         pass
-    def __call__(self, img, mag=-1, prob=1.):
-        if np.random.uniform(0,1) > prob:
+    def __call__(self, img, mag=-1, p=1.):
+        if np.random.uniform(0,1) > p:
             return img
 
         c = [.1, .7, 1.3]
@@ -77,11 +89,11 @@ class Enhance:
         return img
 
 class Curve:
-    def __init__(self,prob=1.):
-        self.prob = prob
+    def __init__(self,p=1.):
+        self.p = p
     def __call__(self,**img):
         img = img['image']
-        if np.random.uniform(0,1) > self.prob:
+        if np.random.uniform(0,1) > self.p:
             return {"image":img}
         
         height, width = img.shape[:2]
