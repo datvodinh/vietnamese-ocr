@@ -18,7 +18,7 @@ DATE = datetime.now().strftime('%Y-%m-%d-%Hh-%Mp-%Ss')
 
 class Inference:
     def __init__(self,MODEL_PATH,device=torch.device('cpu')):
-        data_dict = torch.load(MODEL_PATH)
+        data_dict = torch.load(MODEL_PATH,map_location=device)
         self.device = device
         self.model = OCRTransformerModel(data_dict['config'],data_dict['vocab_size'],device)
         self.model.load_state_dict(data_dict['state_dict'])

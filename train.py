@@ -5,8 +5,8 @@ import yaml
 from src.model.trainer import Trainer
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--src",help="Training image path")
-parser.add_argument("--target",help="Training label path")
+parser.add_argument("--src",help="Training image path",required=True)
+parser.add_argument("--target",help="Training label path",required=True)
 parser.add_argument("--model",help="Model save path")
 parser.add_argument("--config",help="Config save path")
 arg = parser.parse_args()
